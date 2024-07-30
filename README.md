@@ -1,2 +1,2 @@
-# x_cube
+# x³
 Syntax Fixing
