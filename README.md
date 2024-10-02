@@ -4,7 +4,7 @@
 # X3 Documentation
 
 ![Website](https://img.shields.io/website?url=https%3A%2F%2Fx3documentation.neocities.org)
-![License](https://img.shields.io/github/license/your-username/x3documentation)
+![Terms & Conditions](https://x3documentation.neocities.org/terms-and-conditions)
 ![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen)
 
 Welcome to the GitHub repository for the **X3 Documentation** website hosted at [x3documentation.neocities.org](https://x3documentation.neocities.org).
