@@ -3,9 +3,9 @@
 
 # X3 Documentation
 
-![Website](https://img.shields.io/website?url=https%3A%2F%2Fx3documentation.neocities.org)
-![Terms & Conditions](https://x3documentation.neocities.org/terms-and-conditions)
-![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen)
+[Website](https://img.shields.io/website?url=https%3A%2F%2Fx3documentation.neocities.org)
+[Terms & Conditions](https://x3documentation.neocities.org/terms-and-conditions)
+[Download](https://x3documentation.neocities.org/downloads)
 
 Welcome to the GitHub repository for the **X3 Documentation** website hosted at [x3documentation.neocities.org](https://x3documentation.neocities.org).
 
@@ -46,7 +46,7 @@ To use the X3 interpreter locally, follow these steps:
 1. **Clone the Repository**:
 
     ```sh
-    git clone https://github.com/your-username/x3documentation.git
+    git clone https://github.com/XFydro/x3documentation.git
     ```
 
 2. **Navigate to the Directory**:
@@ -58,7 +58,7 @@ To use the X3 interpreter locally, follow these steps:
 3. **Run the X3 Interpreter**:
 
     ```sh
-    python x3_interpreter.py your_script.x3
+    python x3_interpreter.py --mode file --file your_script.x3
     ```
 
 4. **Set Up in VS Code** (optional):
@@ -69,8 +69,8 @@ To use the X3 interpreter locally, follow these steps:
 Below is a simple "Hello World" program written in X3:
 
 ```x3
-print "Hello, World!"
-
+prt "hello world"
+```
 For any questions or suggestions, feel free to reach out at [https://x3documentation.neocities.org/contact](https://x3documentation.neocities.org/contact).
 
 ---
