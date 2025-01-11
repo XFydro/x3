@@ -1,33 +1,34 @@
 # Official x³ interpreter!
 --------------------------
 
-# X3 Documentation
+# X3 DMI(Data Management Interpreter)
 
 [Website](https://img.shields.io/website?url=https%3A%2F%2Fx3documentation.neocities.org)
 [Terms & Conditions](https://x3documentation.neocities.org/terms-and-conditions)
 [Download](https://x3documentation.neocities.org/downloads)
 
-Welcome to the GitHub repository for the **X3 Documentation** website hosted at [x3documentation.neocities.org](https://x3documentation.neocities.org).
+Welcome to the GitHub repository for the **X3 DMI**, for more info check [x3documentation.neocities.org](https://x3documentation.neocities.org).
 
 ---
 
-## 🚀 Overview
-
-The **X3 Documentation** is an online resource dedicated to providing comprehensive guidance on the X3 programming language. The goal is to empower developers with the tools and knowledge they need to effectively utilize X3 for a variety of purposes, including automation, data manipulation, API interaction, and more. Whether you're just getting started or looking to dive deeper into advanced concepts, this documentation aims to make learning and mastering X3 accessible and enjoyable.
-
 ### 🔍 What is X3?
 
-X3 is a programming language designed to be simple and intuitive for handling operations like variable management, arithmetic calculations, control flow, and data fetching from APIs. It's particularly useful for scripting, building custom command interpreters, and rapid prototyping.
+X3 is a high-level programming language tailored for efficient logic prototyping, streamlined management tasks, and seamless interaction with APIs. It empowers users to rapidly handle data operations, automate workflows, and integrate web-based functionalities.
 
 ## 🌟 Features
 
-- 📜 **Detailed Syntax Guide**: Learn about the core syntax and structure of X3, covering everything from basic data types to complex expressions.
-- ⚙️ **Command Reference**: A complete list of available commands with detailed descriptions, parameters, and practical examples for each command.
-- 🔄 **Control Flow & Error Handling**: Learn how to write complex conditional logic using `if`, `else`, `while`, and nested loops, while ensuring proper error handling and avoiding common pitfalls.
-- 🌐 **API Data Fetching**: Use X3 to make HTTP requests and fetch data from APIs, storing responses in variables for further processing.
-- 🧹 **Variable Management**: Understand how to declare, assign, and manipulate variables efficiently, including dynamic type management and memory handling.
-- 🧪 **Practical Examples**: Real-world examples to help you understand how to apply X3 in automation, data processing, and more.
-- 📊 **Integrated Testing**: Built-in testing framework for testing scripts, allowing you to verify the functionality of your X3 code before deployment.
+- ⚡ Rapid Prototyping: Quickly develop and test logic for automation, workflows, and integration with minimal setup.
+- 🌐 API Integration: Simplify interaction with APIs, enabling seamless data retrieval and processing directly within X3 scripts.
+- 📂 File Management: Efficiently create, read, write, and append files with straightforward commands like w_file, r_file, and a_file.
+- 🔁 Flexible Control Flow: Write complex logic using if, else, while, and for loops, with support for nested structures and robust error handling.
+- 🔧 Custom Functions: Define reusable code blocks with def and fncend for improved modularity and maintainability.
+- 🔍 Enhanced Debugging: Utilize the log and read_log commands to track execution flow and simplify troubleshooting.
+- 🕒 Precise Timing: Pause execution or schedule tasks using the wait command for time-sensitive operations.
+- 🎨 Dynamic Output: Use the prt command to print text or variables with customizable alignment, colors, and formatting options for JSON or HTML.
+- 🗂️ Cross-File Importing: Import variables and commands from other .x3 files to extend script functionality.
+- 🧹 Variable Management: Register and manipulate variables effortlessly with built-in commands like reg, supporting dynamic typing.
+- 🧪 Real-World Use Cases: Includes examples for automation, data handling, and API workflows to accelerate learning and productivity.
+- 🚦 Integrated Testing Tools: Test your X3 scripts with built-in features to ensure reliability and correctness before deployment.
 
 ## 🏁 Getting Started
 
@@ -42,7 +43,7 @@ To get started with X3, visit the documentation website: [x3documentation.neocit
 ### Installation
 
 To use the X3 interpreter locally, follow these steps:
-
+(x.x represents different interpreter versions)
 1. **Clone the Repository**:
 
     ```sh
@@ -52,13 +53,13 @@ To use the X3 interpreter locally, follow these steps:
 2. **Navigate to the Directory**:
 
     ```sh
-    cd x3documentation
+    cd interpreter_x.x
     ```
 
 3. **Run the X3 Interpreter**:
 
     ```sh
-    python x3_interpreter.py --mode file --file your_script.x3
+    python interpreter_x.x.py --mode file --file your_script.x3
     ```
 
 4. **Set Up in VS Code** (optional):
@@ -71,7 +72,7 @@ Below is a simple "Hello World" program written in X3:
 ```x3
 prt "hello world"
 ```
-For any questions or suggestions, feel free to reach out at [https://x3documentation.neocities.org/contact](https://x3documentation.neocities.org/contact).
+For any questions or suggestions, feel free to reach out at - [Our contact page.](https://x3documentation.neocities.org/contact).
 
 ---
 
