@@ -1211,3 +1211,4 @@ try:
 except Exception as e:
     print(f"[CRITICAL ERROR]: {e},Terminating script.")
 #Official 1k lines of code!!-November/24
+#Official VSCode extensions marketplace release -Jan/14/24
