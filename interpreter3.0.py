@@ -2,10 +2,31 @@ import requests
 import argparse
 import time
 import re
-import os as sys
+import os as sys1
 import shlex 
 import json
 from colorama import Fore, Style, init
+import subprocess
+import sys
+#patch23:42 13-01-2025--#1:Install packages automatically.
+def install_package(package):
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"{package} not found. Installing...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+# Check and install the modules
+install_package("colorama")
+install_package("requests")
+
+# Test imports
+try:
+    import colorama
+    import requests
+    print("Both colorama and requests are installed and ready to use!")
+except ImportError as e:
+    print(f"Error importing modules: {e}")
 """
 Requirements:
 __Python3.6+
@@ -60,7 +81,6 @@ try:
                 'end': self.cmd_end,
                 'fetch': self.cmd_fetch,
                 'exit': self.cmd_exit,
-                'for': self.cmd_for,
                 'while': self.cmd_while,
                 'def': self.cmd_def,
                 'call': self.cmd_call,
@@ -69,7 +89,6 @@ try:
                 'default': self.cmd_default,
                 'inc': self.cmd_inc,
                 'dec': self.cmd_dec,
-                'try': self.cmd_try,
                 'catch': self.cmd_catch,
                 'repeat': self.cmd_repeat,
                 'wait': self.cmd_wait,
@@ -181,7 +200,7 @@ try:
                 else:
                     print("[DEBUG] ELSE block skipped due to True IF condition.")
         def cmd_clear(self):
-            sys.system('cls')
+            sys1.system('cls')
         def cmd_end(self):
             """
             Handle the `end` statement to close a control block.
@@ -604,7 +623,7 @@ try:
                 if self.debug:
                     print(f"[DEBUG] Unrecognized command: {command}. Known commands: {list(self.command_mapping.keys())} AND Exceptional commands: {list(self.exceptional_commands.keys())}")
                 self.cmd_log("ErrId0:Unknown Command, Terminating Script")   
-                sys.exit(0)
+                sys1.exit(0)
         def dev(self):
             self.debug = True
         def cmd_try(self, args):
@@ -699,7 +718,7 @@ try:
             """
             filename = args.strip()
             try:
-                sys.remove(filename)
+                sys1.remove(filename)
                 print(f"File '{filename}' deleted successfully.")
             except FileNotFoundError:
                 print(f"ErrID57: File '{filename}' not found.")
@@ -712,7 +731,7 @@ try:
             """
             directory_name = args.strip()
             try:
-                sys.makedirs(directory_name, exist_ok=True)
+                sys1.makedirs(directory_name, exist_ok=True)
                 print(f"Directory '{directory_name}' created successfully.")
             except Exception as e:
                 print(f"ErrID59: Failed to create directory. Error: {e}")
@@ -723,7 +742,7 @@ try:
             """
             directory_name = args.strip()
             try:
-                sys.rmdir(directory_name)
+                sys1.rmdir(directory_name)
                 print(f"Directory '{directory_name}' deleted successfully.")
             except FileNotFoundError:
                 print(f"ErrID60: Directory '{directory_name}' not found.")
@@ -798,7 +817,7 @@ try:
                     return
 
                 var_name, value = parts[0], parts[1]
-                sys.environ[var_name] = value
+                sys1.environ[var_name] = value
                 print(f"Environment variable '{var_name}' set to '{value}'.")
             except Exception as e:
                 print(f"ErrID69: Failed to set environment variable. Error: {e}")
@@ -1146,8 +1165,12 @@ try:
             if var_name in self.variables:
                 value, var_type = self.variables[var_name]
                 if not isinstance(value, (int, float)):
-                    raise ValueError(f"Variable '{var_name}' is not numeric.")
+                    if value.isnumeric():
+                        return int(value)
+                    else:
+                        raise ValueError(f"Variable '{var_name}' is not numeric.")
                 return value
+            
             else:
                 # If not a variable, attempt to cast directly
                 try:
@@ -1168,9 +1191,12 @@ try:
 
         # If a file is provided, read commands from the file
         if args.file:
-            with open(args.file, 'r') as script_file:
-                for line in script_file:
-                    interpreter.handle_command(line.strip())
+            try:
+                with open(args.file, 'r') as script_file:
+                    for line in script_file:
+                        interpreter.handle_command(line.strip())
+            except Exception as exc:
+                print(f"Could not load {args.file} due to reason:{exc}")            
         else:
             # IDLE mode (Will be removed in v3.x idk)
             while True:
@@ -1182,6 +1208,6 @@ try:
                     break
     if __name__ == "__main__":
         main()
-except Exception as E:
-    print(f"[CRITICAL ERROR]: {E},Terminating script.")
+except Exception as e:
+    print(f"[CRITICAL ERROR]: {e},Terminating script.")
 #Official 1k lines of code!!-November/24
