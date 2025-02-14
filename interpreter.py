@@ -9,6 +9,10 @@ from colorama import Fore, Style, init
 import subprocess
 import sys
 #patch23:42 13-01-2025--#1:Install packages automatically.
+#patch21:29 05-02-2025--#2:Fixed Log Functionality
+#patch22:10 11-02-2025--#3:Fixed Fetch Functionality
+#addition22:30 11-02-2025--#1:Added flush to reset interpreter state
+
 def install_package(package):
     try:
         __import__(package)
@@ -24,7 +28,7 @@ install_package("requests")
 try:
     import colorama
     import requests
-    print("Both colorama and requests are installed and ready to use!")
+    print("Loaded 2 extra modules: colorama, requests.")
 except ImportError as e:
     print(f"Error importing modules: {e}")
 """
@@ -47,14 +51,24 @@ try:
             self.functions = {}
             self.control_stack = []
             self.debug = False
+            self.debuglog = []
             self.output = None
             self.status = True
             self.log_messages = []
             self.nested_loops = []
             self.special_command=[]
             self.if_stack = []
-            self.functions = {}  #=function definitions here
-            
+            self.functions = {}
+            self.execution_state = {}
+            self.h = 0
+            #Debug Init---
+            self.ctrflwdebug = False
+            self.prtdebug = False
+            self.mathdebug = False
+            self.filedebug = False
+            self.clramadebug = False
+            self.cmdhandlingdebug = False
+            #---
             self.command_mapping = {
                 'cls': self.cmd_clear,
                 'dev.debug': self.dev,
@@ -94,7 +108,10 @@ try:
                 'wait': self.cmd_wait,
                 'log': self.cmd_log,
                 'fncend': self.cmd_fncend,
-
+                'dev.debug': self.dev,
+                'load': self.load,
+                'dev.custom': self.DEVCUSTOMTESTING,
+                'flush': self.flush,
             }
             self.exceptional_commands={
                 "//",
@@ -136,9 +153,47 @@ try:
                     "-bold/cyan": "\033[1;96m",   # Bold bright cyan
                     "-bold/white": "\033[1;97m",  # Bold bright white
                 }
+        def flush(self):
+            self.variables = {}
+            self.functions = {}
+            self.control_stack = []
+            self.debug = False
+            self.debuglog = []
+            self.output = None
+            self.status = True
+            self.log_messages = []
+            self.nested_loops = []
+            self.special_command=[]
+            self.if_stack = []
+            self.functions = {}
+            self.execution_state = {}
+            self.h = 0
+            #Debug Init---
+            self.ctrflwdebug = False
+            self.prtdebug = False
+            self.mathdebug = False
+            self.filedebug = False
+            self.clramadebug = False
+            self.cmdhandlingdebug = False
+        def DEVCUSTOMTESTING(self):
+            print(self.control_stack)            
+        def load(self, filename):
+            try:
+                interpreter = Interpreter()
+                with open(filename, 'r') as file:
+                    for line in file:
+                        command = line.strip()
+                        interpreter.handle_command(command)
+            except FileNotFoundError:
+                print(f"Error: The file '{filename}' was not found.")
+            except Exception as e:
+                print(f"An error occurred while executing commands from '{filename}': {e}")  
+        def is_float(self, num):
+            return True if type(num)=="float" else False;    
         def log(self, message):
             if self.debug:
                 print(f"[DEBUG]: {message}")
+                self.debuglog.append(f"[DEBUG]: {message}")
                                     
         def cmd_exec(self, line, main_vars):
             tokens = line.split()
@@ -153,84 +208,99 @@ try:
                 # Here you can handle other commands like assignments, prints, etc.
                 # For example, a simple assignment might look like:
                 exit(0)
-                    
+        def cmd_clear(self, args):
+            if args!="legacy":
+                sys1.system('cls' if sys1.name == 'nt' else 'clear')
+            else:
+                print("\n" * 100)
+
         def cmd_if(self, condition):
             """
-            Handle an `if` statement for conditional execution.
+            Start an `if` block by evaluating the condition.
             """
-            # If `condition` is a list, convert it to a string
-            if isinstance(condition, list):
-                condition = ' '.join(condition)
-
-            # Parse and evaluate the condition
             try:
-                if "exists" in condition:
-                    left, operator = self.parse_condition(condition)
-                    result = self.eval_condition(left, operator)
-                else:
-                    left, operator, right = self.parse_condition(condition)
-                    result = self.eval_condition(left, operator, right)
-
-                # Push the evaluation result onto the if_stack
-                self.if_stack.append(result)
-
-                if self.debug:
-                    print(f"[DEBUG] IF condition '{condition}' evaluated to {result}")
-                return result
+                # Parse and evaluate the condition
+                left, operator, right = self.parse_condition(condition)
+                result = self.eval_condition(left, operator, right)
             except ValueError as e:
-                print(f"[CRITICAL ERROR]: Invalid condition '{condition}'. Details: {e}")
+                print(f"[CRITICAL ERROR]: Invalid IF condition '{condition}'. Details: {e}")
                 self.cmd_exit()
+
+            # Register the IF block in the control stack
+            self.control_stack.append({"type": "if", "executed": result, "allow_else": not result})
+
+            if self.ctrflwdebug:
+                print(f"[DEBUG] IF condition '{condition}' evaluated to {result}")
+
+            # Set execution state based on the condition
+            self.execution_state = result
 
         def cmd_else(self):
             """
-            Handle the `else` statement for conditional execution.
+            Handle an `else` block for conditional execution.
             """
-            # Ensure there is a preceding `if` in the stack
-            if not self.if_stack:
-                print("[CRITICAL ERROR]: Else without a preceding if statement. Terminating script.")
+            if not self.control_stack or self.control_stack[-1]["type"] != "if":
+                print("[CRITICAL ERROR]: ELSE without matching IF. Terminating script.")
                 self.cmd_exit()
 
-            # Only toggle the last condition if it's the active scope
-            last_condition = self.if_stack.pop()
-            self.if_stack.append(not last_condition)
+            last_if = self.control_stack[-1]
 
-            if self.debug:
-                if not last_condition:
-                    print("[DEBUG] ELSE block executed because IF condition was False.")
-                else:
-                    print("[DEBUG] ELSE block skipped due to True IF condition.")
-        def cmd_clear(self):
-            sys1.system('cls')
+            if last_if["allow_else"]:
+                self.execution_state = True
+                last_if["allow_else"] = False  # Prevent multiple ELSE blocks from executing
+                if self.ctrflwdebug:
+                    print("[DEBUG] ELSE block executed")
+            else:
+                self.execution_state = False
+                if self.ctrflwdebug:
+                    print("[DEBUG] ELSE block skipped")
+
         def cmd_end(self):
             """
-            Handle the `end` statement to close a control block.
+            End the current control block (IF/ELSE).
             """
-            if not self.control_stack:
+            if not self.control_stack or self.control_stack[-1]["type"] not in {"if", "else"}:
                 print("[CRITICAL ERROR]: END without a matching control block. Terminating script.")
                 self.cmd_exit()
 
-            # Check the type of the control block being closed
-            current_block = self.control_stack.pop()
-            if current_block["type"] == "while":
-                # Re-evaluate the while condition
-                condition = current_block["condition"]
-                left, operator, right = self.parse_condition(condition)
-                if self.eval_condition(left, operator, right):
-                    # If condition is still true, re-execute the loop
-                    self.control_stack.append(current_block)  # Re-add the while block
-                    if self.debug:
-                        print("[DEBUG] Re-entering while loop.")
-            elif current_block["type"] == "if":
-                if self.debug:
-                    print("[DEBUG] End of IF/ELSE block.")
-            else:
-                print("[CRITICAL ERROR]: Unrecognized control block type. Terminating script.")
-                self.cmd_exit()
+            # Pop the last block and restore execution state
+            self.control_stack.pop()
+            self.execution_state = not self.control_stack or self.control_stack[-1].get("executed", True)
 
+            if self.ctrflwdebug:
+                print("[DEBUG] END block executed. Restored execution state")
 
         def should_execute(self):
-            # to check if the current command is ready to be executed based on the if_stack
-            return all(self.if_stack)
+            """
+            Determine if the current block should execute based on the control stack.
+            """
+            if self.h == 0:
+                return True  # Always execute at the base level
+
+            a = self.h
+            execute = True  # Assume execution is allowed
+
+            # Check the control stack for preceding conditions
+            while a > 0:
+                current_block = self.control_stack[a - 1]
+
+                if isinstance(current_block, dict):
+                    if current_block.get("type") == "if":
+                        if not current_block.get("executed"):
+                            execute = False  # A previous 'if' failed, so execution is blocked
+                        else:
+                            return True  # If a previous 'if' was True, we allow execution
+                    elif current_block.get("type") == "else":
+                        previous_block = self.control_stack[a - 2] if a - 2 >= 0 else None
+                        if previous_block and previous_block.get("allow_else"):
+                            execute = True  # Allow execution for valid 'else' blocks
+                        else:
+                            print("Misplaced else statement")
+                            sys1.exit()
+                
+                a -= 1  # Move up the stack
+
+            return execute  # Return final execution decision
 
         def parse_condition(self, condition):
             """
@@ -274,7 +344,7 @@ try:
             # Handle the 'exists' operator
             if operator == "exists":
                 exists = left in self.variables
-                if self.debug:
+                if self.ctrflwdebug:
                     print(f"[DEBUG] Left Value '{left}' in VARIABLES: {exists}")
                 return exists
 
@@ -310,7 +380,7 @@ try:
                 return False
 
             # Debug logging for evaluation
-            if self.debug:
+            if self.ctrflwdebug:
                 self.cmd_log(f"Evaluating: Left: {left_value}, Operator: {operator}, Right: {right_value}")
 
             # Perform the operation based on the operator
@@ -365,7 +435,6 @@ try:
                 # Parse settings using regex
                 settings_pattern = re.compile(r"(align|delay|title|tofile|format|case|border|effect)=(\S+)")
                 matches = settings_pattern.findall(args)
-
                 for key, value in matches:
                     if key == "delay":
                         try:
@@ -442,9 +511,12 @@ try:
                         print(settings["color_code"] + char, end="", flush=True)
                         time.sleep(settings["delay"])
                     print("\033[0m")  # Reset color
+                elif args=="output":
+                    print(self.output)    
                 else:
                     print(settings["color_code"] + args + "\033[0m")
-
+                if self.prtdebug:
+                    print("[DEBUG] Print Settings: ")
             except ValueError as e:
                 print(f"ErrID38: Value error in prt command. Details: {e}")
             except Exception as e:
@@ -524,16 +596,14 @@ try:
             """Fetch data from a given API URL or from a variable in Var_Reg."""
             if not url:
                 print("ErrID11: No URL or variable provided.")
-                self.cmd_exit()
                 self.output = None
                 return
 
             if url in self.variables:
                 url = self.variables[url]
 
-            if not url or not isinstance(url, str):
+            if not isinstance(url, str) or not url.strip():
                 print("ErrID12: Invalid URL or variable key provided.")
-                self.cmd_exit()
                 self.output = None
                 return
 
@@ -544,9 +614,7 @@ try:
                 print(f"[DEBUG] Data fetched and stored in output: {self.output}")
             except requests.exceptions.RequestException as e:
                 print(f"ErrID10: Failed to fetch data from API. Error: {e}")
-                self.cmd_exit()
                 self.output = None
-
 
         def store_variable(self, var_name, value, data_type):
             if not value=="output":
@@ -558,7 +626,7 @@ try:
         def cmd_fncend(self):
             """Marks the end of a function definition."""
             if hasattr(self, "current_function_name"):
-                if self.debug:
+                if self.ctrflwdebug:
                     print(f"[DEBUG] End of function definition for '{self.current_function_name}'")
                 # Remove the current function context
                 del self.current_function_name
@@ -568,6 +636,28 @@ try:
             #if command.startswith("dev.")==True:
             #    self.dev(command)
             #    return   
+            if not self.should_execute():
+                # Special handling for control flow commands
+                if cmd in {"if", "else", "end"}:
+                    if cmd == "if":
+                        self.cmd_if(' '.join(parts[1:]))
+                        self.h += 1  # Register the block if necessary
+                    elif cmd == "else":
+                        self.cmd_else()
+                        self.h += 1
+                    elif cmd == "end":
+                        self.cmd_end()
+                        self.h -= 1
+                    elif cmd == "dev.debug":
+                        return True    
+                else:
+                    # Skip non-control-flow commands
+                    if self.cmdhandlingdebug:
+                        print(f"[DEBUG] Skipping command '{command}' due to if_stack state.")
+                    print("skipped")
+                    return
+                print("skipped")
+                return
             if command == "fncend":
                 self.cmd_fncend()
                 return
@@ -584,13 +674,10 @@ try:
 
             cmd = parts[0].strip()
             # Check if the current command should execute
-            if not(self.should_execute()) and not cmd=="end" and not cmd=="else":
-                if self.debug:
-                    print(f"[DEBUG] Skipping command '{command}' due to if_stack state.")
-                return
+
 
             if cmd in self.command_mapping or cmd in self.exceptional_commands:
-                if self.debug:
+                if self.cmdhandlingdebug:
                     print(f"[DEBUG] Handling command: '{command}'")
                 if command=="//" or command=="" or command==" ":
                     return
@@ -598,12 +685,12 @@ try:
                 if getattr(self, "in_function_definition", False):
                     if cmd != "fncend":  # Avoid adding 'fncend' to the function's list
                         self.functions[self.current_function_name].append(command)
-                        if self.debug:
+                        if self.cmdhandlingdebug:
                             print(f"[DEBUG] Adding command '{command}' to function '{self.current_function_name}'")
                     return
 
                 # Commands that don’t take arguments
-                no_arg_commands = ["else", "end", "dev.debug", "cls"]
+                no_arg_commands = ["else","end","dev.custom","flush"]
 
                 # Process command if recognized
                 if cmd in self.command_mapping:
@@ -614,18 +701,39 @@ try:
                         args = ''.join(parts[1:]).strip() if cmd == "prt" else ' '.join(parts[1:])
                         self.command_mapping[cmd](args)
 
-                    if self.debug:
+                    if self.cmdhandlingdebug:
                         print(f"[DEBUG] Command '{cmd}' executed with args: '{args if 'args' in locals() else ''}'")
-                
-                if cmd in ["end"]:
-                    self.skip_next_block = False
             else:
-                if self.debug:
+                if self.cmdhandlingdebug:
                     print(f"[DEBUG] Unrecognized command: {command}. Known commands: {list(self.command_mapping.keys())} AND Exceptional commands: {list(self.exceptional_commands.keys())}")
                 self.cmd_log("ErrId0:Unknown Command, Terminating Script")   
-                sys1.exit(0)
-        def dev(self):
-            self.debug = True
+                sys.exit(0)
+        def dev(self, raw_args):
+            args = raw_args.split()
+            dbg_option = args[0]
+            if dbg_option == "controlflow":
+                self.ctrflwdebug = True  
+            elif dbg_option == "print":
+                self.prtdebug = True
+            elif dbg_option == "math":
+                self.mathdebug = True
+            elif dbg_option == "file":
+                self.filedebug = True    
+            elif dbg_option == "colorama":
+                self.clramadebug = True
+            elif dbg_option == "requests":
+                self.reqdebug = True  
+            elif (dbg_option == "None") or (dbg_option == "All"):
+                self.debug = True
+                self.ctrflwdebug = True
+                self.prtdebug = True
+                self.mathdebug = True
+                self.filedebug = True
+                self.clramadebug = True
+                self.cmdhandlingdebug = True
+                self.reqdebug = True
+            else:
+                print("[SELF-DEBUG] Incorrect usuage of the debug command")    
         def cmd_try(self, args):
             self.control_stack.append({
                 "type": "try",
@@ -668,13 +776,13 @@ try:
             message = " ".join(map(str, args))
 
             # Optionally, write logs to a file if in debug mode
-            if self.debug:
-                with open("x3_debug.log", "a") as log_file:
-                    log_file.write(f"{message}\n")
+            with open("x3_debug.log", "a") as log_file:
+                log_file.write(f"{message}\n")
 
             # Print to the console in debug mode
             if self.debug:
                 print(f"[DEBUG] {message}")
+                self.debuglog.append(f"[DEBUG] {message}")
 
         def cmd_reg(self, args):
             # Ensure we have at least 3 elements in args (variable name, data type, and value)
@@ -889,7 +997,8 @@ try:
             url = args[0]
             if url in self.variables:           
                 self.fetch_data_from_api(self.variables[url])
-
+            else:
+                self.fetch_data_from_api(args)
         def cmd_exit(self, args=None):
             if args:
                 print(f"[CRITICAL ERROR]: {args}")
@@ -901,14 +1010,15 @@ try:
             """Unified debug logger."""
             if self.debug:
                 print(f"[DEBUG] {message}")
-
+                self.debuglog.append(f"[DEBUG] {message}")
         def cmd_exit_ce(self):
             """Exit the program with an error message."""
             print("Exiting due to an error.")
             exit(1)
 
+        """
+        //Deprecated
         def cmd_for(self, args):
-            """For-loop implementation."""
             try:
                 loop_var, start, end, step = args
                 start, end, step = int(start), int(end), int(step)
@@ -919,7 +1029,8 @@ try:
             except ValueError:
                 print("ErrID40: Invalid arguments for 'for' loop. Expected: var start end step")
                 self.cmd_exit()
-
+                */
+        """
         def cmd_while(self, condition):
             """
             Implements the while-loop functionality in the interpreter.
@@ -1108,55 +1219,66 @@ try:
 
         def cmd_mod(self, args):
             self.perform_arithmetic_operation(args, operation="mod")
+        import shlex  # Import for proper argument parsing
 
         def perform_arithmetic_operation(self, args, operation):
             """
-            Handles arithmetic operations dynamically.
+            Handles arithmetic operations dynamically with improved error handling.
             Supported operations: add, sub, mul, div, mod
             """
             try:
-                # Ensure exactly 3 arguments are provided
-                args = args.split()
+                # Properly parse arguments using shlex to handle spaces correctly
+                args = shlex.split(args)
                 if len(args) != 3:
-                    raise ValueError("Incorrect number of arguments. Expected syntax: <var_name> <operand1> <operand2>")
+                    raise ValueError(f"Incorrect number of arguments. Expected 3, got {len(args)}. Syntax: <var_name> <operand1> <operand2>")
 
                 var_name, op1, op2 = args
 
-                # Validate operands and retrieve values
-                operand1 = self.get_variable_value(op1)
-                operand2 = self.get_variable_value(op2)
+                # Retrieve and validate operand values
+                try:
+                    operand1 = self.get_variable_value(op1)
+                    operand2 = self.get_variable_value(op2)
+                except KeyError as e:
+                    raise KeyError(f"Variable '{e.args[0]}' not defined.")
 
-                # Perform the operation
-                if operation == "add":
-                    result = operand1 + operand2
-                elif operation == "sub":
-                    result = operand1 - operand2
-                elif operation == "mul":
-                    result = operand1 * operand2
-                elif operation == "div":
-                    if operand2 == 0:
-                        raise ZeroDivisionError("Division by zero is not allowed.")
-                    result = operand1 / operand2
-                elif operation == "mod":
-                    if operand2 == 0:
-                        raise ZeroDivisionError("Modulo by zero is not allowed.")
-                    result = operand1 % operand2
-                else:
-                    raise ValueError(f"Unsupported operation: {operation}")
+                # Ensure operands are numeric
+                try:
+                    operand1 = float(operand1) if '.' in str(operand1) else int(operand1)
+                    operand2 = float(operand2) if '.' in str(operand2) else int(operand2)
+                except ValueError:
+                    raise TypeError("Operands must be valid numeric values.")
 
-                # Determine result type (int if possible, otherwise float)
+                # Define supported operations
+                operations = {
+                    "add": lambda x, y: x + y,
+                    "sub": lambda x, y: x - y,
+                    "mul": lambda x, y: x * y,
+                    "div": lambda x, y: x / y if y != 0 else ZeroDivisionError("Division by zero is not allowed."),
+                    "mod": lambda x, y: x % y if y != 0 else ZeroDivisionError("Modulo by zero is not allowed.")
+                }
+
+                # Execute operation
+                if operation not in operations:
+                    raise ValueError(f"Unsupported operation '{operation}'. Valid operations: {', '.join(operations.keys())}")
+
+                result = operations[operation](operand1, operand2)
+
+                if isinstance(result, ZeroDivisionError):
+                    raise result  # Trigger error if division/modulo by zero
+
+                # Determine result type
                 result_type = "int" if isinstance(result, int) else "float"
                 self.store_variable(var_name, result, result_type)
-                print(f"Stored result: {var_name} = {result} ({result_type})")
 
-            except KeyError as e:
-                print(f"ErrID5: Variable '{e.args[0]}' not defined.")
-            except ValueError as e:
-                print(f"ErrID6: {e}")
+                if self.mathdebug:
+                    print(f"[DEBUG] Stored result: {var_name} = {result} ({result_type})")
+
+            except (KeyError, ValueError, TypeError) as e:
+                print(f"[ERROR] {e}")
             except ZeroDivisionError as e:
-                print(f"ErrID4: {e}")
+                print(f"[ERROR] {e}")
             except Exception as e:
-                print(f"ErrID7: Unexpected error during {operation}. Details: {e}")
+                print(f"[ERROR] Unexpected error during {operation}: {e}")
 
         def get_variable_value(self, var_name):
             """
@@ -1177,15 +1299,12 @@ try:
                     return int(var_name) if "." not in var_name else float(var_name)
                 except ValueError:
                     raise KeyError(var_name)
-
-
-
     def main():
         parser = argparse.ArgumentParser(description="X3 Interpreter")
         parser.add_argument('-f', '--file', type=str, help='File to execute as a script')
         parser.add_argument('-d', '--debug', action='store_true', help='Enable debug mode')
         args = parser.parse_args()
-
+        
         #uses debug mode if nessecary
         interpreter = Interpreter(debug=args.debug)
 
@@ -1201,7 +1320,7 @@ try:
             # IDLE mode (Will be removed in v3.x idk)
             while True:
                 try:
-                    user_input = input("X3> ")
+                    user_input = input(">>")
                     interpreter.handle_command(user_input.strip())
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting.")
@@ -1209,6 +1328,6 @@ try:
     if __name__ == "__main__":
         main()
 except Exception as e:
-    print(f"[CRITICAL ERROR]: {e},Terminating script.")
+    print(f"[CRITICAL ERROR]: {e},\nTerminating script.")
 #Official 1k lines of code!!-November/24
-#Official VSCode extensions marketplace release -Jan/14/24
+#Official X3 Runner release -January/25
