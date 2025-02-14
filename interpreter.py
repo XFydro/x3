@@ -12,7 +12,7 @@ import sys
 #patch21:29 05-02-2025--#2:Fixed Log Functionality
 #patch22:10 11-02-2025--#3:Fixed Fetch Functionality
 #addition22:30 11-02-2025--#1:Added flush to reset interpreter state
-
+version=2.5
 def install_package(package):
     try:
         __import__(package)
