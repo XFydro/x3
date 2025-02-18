@@ -12,7 +12,8 @@ import sys
 #patch21:29 05-02-2025--#2:Fixed Log Functionality
 #patch22:10 11-02-2025--#3:Fixed Fetch Functionality
 #addition22:30 11-02-2025--#1:Added flush to reset interpreter state
-version=2.5
+idle=0
+version=2.7
 def install_package(package):
     try:
         __import__(package)
@@ -112,6 +113,7 @@ try:
                 'load': self.load,
                 'dev.custom': self.DEVCUSTOMTESTING,
                 'flush': self.flush,
+                '--info': self.info,
             }
             self.exceptional_commands={
                 "//",
@@ -153,6 +155,8 @@ try:
                     "-bold/cyan": "\033[1;96m",   # Bold bright cyan
                     "-bold/white": "\033[1;97m",  # Bold bright white
                 }
+        def info(self):
+            print(version)
         def flush(self):
             self.variables = {}
             self.functions = {}
@@ -652,7 +656,7 @@ try:
                         return True    
                 else:
                     # Skip non-control-flow commands
-                    if self.cmdhandlingdebug:
+                    if self.cmdhandlingdebug or idle==1:
                         print(f"[DEBUG] Skipping command '{command}' due to if_stack state.")
                     print("skipped")
                     return
@@ -677,7 +681,7 @@ try:
 
 
             if cmd in self.command_mapping or cmd in self.exceptional_commands:
-                if self.cmdhandlingdebug:
+                if self.cmdhandlingdebug or idle==1:
                     print(f"[DEBUG] Handling command: '{command}'")
                 if command=="//" or command=="" or command==" ":
                     return
@@ -685,12 +689,12 @@ try:
                 if getattr(self, "in_function_definition", False):
                     if cmd != "fncend":  # Avoid adding 'fncend' to the function's list
                         self.functions[self.current_function_name].append(command)
-                        if self.cmdhandlingdebug:
+                        if self.cmdhandlingdebug or idle==1:
                             print(f"[DEBUG] Adding command '{command}' to function '{self.current_function_name}'")
                     return
 
                 # Commands that don’t take arguments
-                no_arg_commands = ["else","end","dev.custom","flush"]
+                no_arg_commands = ["else","end","dev.custom","flush","--info"]
 
                 # Process command if recognized
                 if cmd in self.command_mapping:
@@ -701,11 +705,11 @@ try:
                         args = ''.join(parts[1:]).strip() if cmd == "prt" else ' '.join(parts[1:])
                         self.command_mapping[cmd](args)
 
-                    if self.cmdhandlingdebug:
+                    if self.cmdhandlingdebug or idle==1:
                         print(f"[DEBUG] Command '{cmd}' executed with args: '{args if 'args' in locals() else ''}'")
             else:
-                if self.cmdhandlingdebug:
-                    print(f"[DEBUG] Unrecognized command: {command}. Known commands: {list(self.command_mapping.keys())} AND Exceptional commands: {list(self.exceptional_commands.keys())}")
+                if self.cmdhandlingdebug or idle==1:
+                    print(f"[DEBUG] Unrecognized command: {command}.")
                 self.cmd_log("ErrId0:Unknown Command, Terminating Script")   
                 sys.exit(0)
         def dev(self, raw_args):
@@ -1317,7 +1321,7 @@ try:
             except Exception as exc:
                 print(f"Could not load {args.file} due to reason:{exc}")            
         else:
-            # IDLE mode (Will be removed in v3.x idk)
+            idle=1
             while True:
                 try:
                     user_input = input(">>")
