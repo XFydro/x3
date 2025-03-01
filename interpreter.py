@@ -8,12 +8,9 @@ import json
 from colorama import Fore, Style, init
 import subprocess
 import sys
-#patch23:42 13-01-2025--#1:Install packages automatically.
-#patch21:29 05-02-2025--#2:Fixed Log Functionality
-#patch22:10 11-02-2025--#3:Fixed Fetch Functionality
-#addition22:30 11-02-2025--#1:Added flush to reset interpreter state
+
 idle=0
-version=2.7
+version=2.8
 def install_package(package):
     try:
         __import__(package)
