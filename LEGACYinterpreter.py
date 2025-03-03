@@ -8,7 +8,13 @@ import json
 from colorama import Fore, Style, init
 import subprocess
 import sys
-
+#
+#
+#
+###LEGACY VERSION, USUAGE IS DEPRECATED
+###
+#
+#
 idle=0
 version=2.8
 def install_package(package):
