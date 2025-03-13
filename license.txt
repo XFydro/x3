@@ -3,7 +3,7 @@ X3 License Agreement
 This software is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA) License.
 
 License Summary:
-By using X³ IDE, you agree to the following terms:
+By using X3 IDE, you agree to the following terms:
 
 Attribution (BY) – You must give appropriate credit, provide a link to the license, and indicate if changes were made.
 NonCommercial (NC) – You may not use this software for commercial purposes.
