@@ -8,7 +8,8 @@
 #ECDP12-02-2025--#4:Added a "eval=true" flag in reg statement for variable evaluation first
 #ECDP12-02-2025--#5:Fixed UTF encoding problems (addition of a new statement "encode")
 #ECDP13-02-2025--#6:Fixed Variable registering and removed the usuage of eval flag for evaluation in int/float types. 
-
+#ECDP16-02-2025--#7:Fixed integer evaluation and registration
+#ECDP16-02-2025--#8:remlved bunch of unused/deprecated/broken keywords/statements/functions.
 
 
 
