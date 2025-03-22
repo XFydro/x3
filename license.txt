@@ -1,4 +1,4 @@
-CCPA 4.0
+CC-BY-NC-SA
 X3 License Agreement
 
 This software is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA) License.
