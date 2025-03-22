@@ -1,5 +1,6 @@
+CC-BY-SA-4.0
 X3 License Agreement
-( CC-BY-SA-4.0 )
+
 This software is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA) License.
 
 License Summary:
