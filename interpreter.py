@@ -10,7 +10,7 @@ import subprocess
 import sys
 import importlib
 idle=0 #on default script mode.
-version=3.0 #version (For IDE and more)
+version=3.5 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     try:
         # Try importing the package
