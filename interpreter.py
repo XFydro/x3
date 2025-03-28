@@ -1,4 +1,5 @@
 #this software is licenced under CCPA4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
+
 import argparse
 import time
 import re
@@ -10,7 +11,7 @@ import subprocess
 import sys
 import importlib
 idle=0 #on default script mode.
-version=3.5 #version (For IDE and more)
+version=3.6 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     try:
         # Try importing the package
@@ -184,9 +185,7 @@ try:
             self.cmdhandlingdebug = False
             self.reqdebug=False
             self.conddebug=False
-            #---
-        def DEVCUSTOMTESTING(self):
-            print("[DEBUG] (dev.custom)Removed in Eclipse")            
+            #---         
         def load(self, filename):
             try:
                 interpreter = Interpreter()
@@ -223,10 +222,10 @@ try:
                 exit(0)
 
         def cmd_clear(self, args):
-            if args!="legacy":
+            if args!="legacy":  
                 sys1.system('cls' if sys1.name == 'nt' else 'clear')
             else:
-                print("\n" * 100)
+                print("\n" * 100) #for terminals that dont support cls.
 
         def cmd_if(self, condition):
             """
@@ -1656,3 +1655,4 @@ except Exception as e:
     print(f"[CRITICAL ERROR]: {e},\nTerminating script.")
 #Official 1k lines of code!!-November/24
 #Development Phase start of Eclispe-March/25
+#Official release of Eclispe prototype 0.6.
