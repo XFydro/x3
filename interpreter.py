@@ -20,6 +20,7 @@ def install_package(package, alias=None): #package installation using subprocess
             print(f"{package} is already installed.")
     except ImportError:
         # Install the package if not found
+        
         print(f"{package} not found. Installing...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
         
@@ -122,6 +123,7 @@ try:
                 'load': self.load,
                 'dev.custom': self.DEVCUSTOMTESTING,
                 'flush': self.flush,
+                'reinit': self.cmd_reinit, 
                 '--info': self.info,
             }
             self.exceptional_commands={
@@ -1585,7 +1587,20 @@ try:
                 print(f"Terminal opened at ({pos_x}, {pos_y}) with size {width}x{height}.")
             else:
                 print("Warning: Could not find the Command Prompt window.")
+        def cmd_reinit(self): #to bring back the interpreter to its initial state. 
+            self.cmd_flush()
 
+            import argparse
+            import time
+            import re
+            import os as sys1
+            import shlex 
+            import json
+            import difflib
+            import subprocess
+            import sys
+            import importlib
+            
         def cmd_goto(self, line_number):
             """
             Moves execution to a specific line in the script file.(Script Execution Mode Only)
