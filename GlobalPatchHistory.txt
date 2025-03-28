@@ -1,16 +1,16 @@
-#patch23:42 13-01-2025--#1:Install packages automatically.
-#patch21:29 05-02-2025--#2:Fixed Log Functionality
-#patch22:10 11-02-2025--#3:Fixed Fetch Functionality
-#addition22:30 11-02-2025--#1:Added flush to reset interpreter state
+#LEGACYpatch23:42 13-01-2025--#1:Install packages automatically.
+#LEGACYpatch21:29 05-02-2025--#2:Fixed Log Functionality
+#LEGACYpatch22:10 11-02-2025--#3:Fixed Fetch Functionality
+#LEGACYaddition22:30 11-02-2025--#1:Added flush to reset interpreter state
 #ECDP11-02-2025--#1:Fixed 10+ bugs and added proper debugging system
-#ECDP11-02-2025--#2:ReAdded the while statement
+#ECDPADDITION11-02-2025--#2:ReAdded the while statement
 #ECDP11-02-2025--#3:Properly modified the interpreter to be install friendly
-#ECDP12-02-2025--#4:Added a "eval=true" flag in reg statement for variable evaluation first
+#ECDPADDITION12-02-2025--#4:Added a "eval=true" flag in reg statement for variable evaluation first
 #ECDP12-02-2025--#5:Fixed UTF encoding problems (addition of a new statement "encode")
-#ECDP13-02-2025--#6:Fixed Variable registering and removed the usuage of eval flag for evaluation in int/float types. 
-#ECDP16-02-2025--#7:Fixed integer evaluation and registration
-#ECDP16-02-2025--#8:remlved bunch of unused/deprecated/broken keywords/statements/functions.
-
+#ECDP13-03-2025--#6:Fixed Variable registering and removed the usuage of eval flag for evaluation in int/float types. 
+#ECDP16-03-2025--#7:Fixed integer evaluation and registration
+#ECDP16-03-2025--#8:removed bunch of unused/deprecated/broken keywords/statements/functions.
+#ECDPADDITION28-03-2025--#9:Added a interpreter state reinit command.
 
 
 
