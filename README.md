@@ -1,5 +1,3 @@
-# Official x³ interpreter!
---------------------------
 
 # X3 DMI(Data Management Interpreter)
 
@@ -19,8 +17,8 @@ X3 is a high-level programming language tailored for efficient logic prototyping
 
 - ⚡ Rapid Prototyping: Quickly develop and test logic for automation, workflows, and integration with minimal setup.
 - 🌐 API Integration: Simplify interaction with APIs, enabling seamless data retrieval and processing directly within X3 scripts.
-- 📂 File Management: Efficiently create, read, write, and append files with straightforward commands like w_file, r_file, and a_file.
-- 🔁 Flexible Control Flow: Write complex logic using if, else, while, and for loops, with support for nested structures and robust error handling.
+- 📂 File Management: Efficiently create, read, write, and append files with straightforward commands. 
+- 🔁 Flexible Control Flow: Write complex logic using if, else and while, with support for nested structures and robust error handling.
 - 🔧 Custom Functions: Define reusable code blocks with def and fncend for improved modularity and maintainability.
 - 🔍 Enhanced Debugging: Utilize the log and read_log commands to track execution flow and simplify troubleshooting.
 - 🕒 Precise Timing: Pause execution or schedule tasks using the wait command for time-sensitive operations.
@@ -63,7 +61,7 @@ To use the X3 interpreter locally, follow these steps:
     ```
 
 4. **Set Up in VS Code** (optional):
-   - Set up a task in VS Code to automatically run `.x3` files using the X3 interpreter.
+   - Install the X3 Runner extension from the vscode extension marketplace, and click the "run" button on a opened x3 file window. 
 
 ### Hello World Example
 
@@ -76,4 +74,4 @@ For any questions or suggestions, feel free to reach out at - [Our contact page.
 
 ---
 
-Thank you for your interest in X3. We hope you find this documentation helpful and encourage you to contribute!
+Thank you for your interest in X3. We hope you find this source code helpful and encourage you to contribute!
