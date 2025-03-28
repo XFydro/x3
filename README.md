@@ -57,7 +57,7 @@ To use the X3 interpreter locally, follow these steps:
 3. **Run the X3 Interpreter**:
 
     ```sh
-    python interpreter_x.x.py --mode file --file your_script.x3
+    python <interpretername>.py --mode file --file your_script.x3
     ```
 
 4. **Set Up in VS Code** (optional):
