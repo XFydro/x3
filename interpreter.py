@@ -58,7 +58,7 @@ try:
     
     class Interpreter:
         def __init__(self, debug=False): #debug set to false as default, you wouldn't want 100 lines of debug as default dont you?
-            
+            self.current_line=0
             self.variables = {} #variable dictionary
             self.functions = {} #function dictionary, kinda messy
             self.control_stack = [] #that if else and stuff, for basic control flow monitoring
@@ -121,7 +121,6 @@ try:
                 'fncend': self.cmd_fncend,
                 'dev.debug': self.dev,
                 'load': self.load,
-                'dev.custom': self.DEVCUSTOMTESTING,
                 'flush': self.flush,
                 'reinit': self.cmd_reinit, 
                 '--info': self.info,
@@ -208,20 +207,6 @@ try:
             if self.debug:
                 print(f"[DEBUG]: {message}")
                 self.debuglog.append(f"[DEBUG]: {message}")
-
-        def cmd_exec(self, line, main_vars):
-            tokens = line.split()
-            
-            if tokens[0] == "extract":
-                if len(tokens) > 1:
-                    var_name = tokens[1]
-                    self.cmd_extract(var_name, main_vars)
-                else:
-                    print("Error: No variable name provided for extraction.")
-            else:
-                # Here you can handle other commands like assignments, prints, etc.
-                # For example, a simple assignment might look like:
-                exit(0)
 
         def cmd_clear(self, args):
             if args!="legacy":  
@@ -359,31 +344,6 @@ try:
 
             return True  # Default: Execute if no issues were found
 
-        def parse_condition(self, condition):
-            """
-            Parse a condition into left-hand side, operator, and right-hand side.
-            Args:
-                condition (str): The condition string.
-            Returns:
-                tuple: (left, operator, right) for standard conditions or (left, operator) for 'exists'.
-            """
-            # Split the condition into parts
-            parts = condition.split()
-            if len(parts) < 2:
-                raise ValueError(f"Invalid condition format: '{condition}'. Expected at least: <left> <operator> [<right>].")
-
-            left = parts[0]
-            operator = parts[1]
-
-            # Handle 'exists' which does not require a right operand
-            if operator == "exists":
-                return left, operator
-
-            if len(parts) < 3:
-                raise ValueError(f"Invalid condition format: '{condition}'. Expected: <left> <operator> <right>.")
-
-            right = ' '.join(parts[2:])
-            return left, operator, right
         def eval_condition(self, condition_str):
             """
             Evaluate an IF condition while ensuring AND (" & ") has higher precedence than OR (" | ").
@@ -449,11 +409,11 @@ try:
                 # Ensure both sides are comparable
                 if isinstance(left_value, (int, float)) and isinstance(right_value, str):
                     if self.conddebug:
-                        print(f"[DEBUG] Type mismatch: Cannot compare '{left_value}' with '{right_value}'") 
+                        print(f"[DEBUG] Type mismatch: Cannot compare '{left_value}'({type(left_value)}) with '{right_value}'({type(right_value)})") 
                     return False
                 if isinstance(left_value, str) and isinstance(right_value, (int, float)):
                     if self.conddebug:
-                        print(f"[DEBUG] Type mismatch: Cannot compare '{left_value}' with '{right_value}'")  
+                        print(f"[DEBUG] Type mismatch: Cannot compare '{left_value}'({type(left_value)}) with '{right_value}'({type(right_value)})") 
                     return False
                 if self.conddebug:
                     print(f"[DEBUG] Evaluating: Left='{left_value}', Operator='{operator}', Right='{right_value}'")  
@@ -477,13 +437,13 @@ try:
                     "endswith": lambda x, y: str(x).endswith(str(y)),
                     "contains": lambda x, y: str(y) in str(x),
                     "!contains": lambda x, y: str(y) not in str(x),
-                    "equals_ignore_case": lambda x, y: str(x).lower() == str(y).lower(),
+                    "==ic": lambda x, y: str(x).lower() == str(y).lower(),
 
                     # Length-Based Comparisons
-                    "len==": lambda x, y: len(str(x)) == int(y),
-                    "len!=": lambda x, y: len(str(x)) != int(y),
-                    "len>": lambda x, y: len(str(x)) > int(y),
-                    "len<": lambda x, y: len(str(x)) < int(y),
+                    "l==": lambda x, y: len(str(x)) == int(y),
+                    "l!=": lambda x, y: len(str(x)) != int(y),
+                    "l>": lambda x, y: len(str(x)) > int(y),
+                    "l<": lambda x, y: len(str(x)) < int(y),
 
                     # Identity Comparisons
                     "is": lambda x, y: id(x) == id(y),
@@ -778,7 +738,7 @@ try:
                     print(f"[DEBUG] Handling command: '{command}'")
                 
                 # Process commands that don't require arguments
-                no_arg_commands = ["else","end","dev.custom","flush","--info"]
+                no_arg_commands = ["else","end","dev.custom","flush","--info","reinit"]
                 if cmd in no_arg_commands:
                     self.command_mapping[cmd]()
                 else:
@@ -1145,46 +1105,70 @@ try:
             """
             inp command: Takes user input and stores it as a variable.
             Usage: inp var_name "prompt" [default]
+            
+            Parameters:
+                var_name: Name of the variable to store
+                prompt: Text to display when asking for input (in quotes)
+                default: (optional) Default value if user enters nothing
+            
+            Examples:
+                inp username "Enter your username"
+                inp timeout "Enter timeout in seconds" 30
+                inp retry "Retry on failure? (true/false)" false
             """
             try:
+                # Check if raw_args is empty or whitespace
+                if not raw_args.strip():
+                    raise ValueError("No arguments provided")
+                    
                 # Properly split arguments using shlex (handles quotes correctly)
                 args = shlex.split(raw_args)
                 
+                # Validate argument count
                 if len(args) < 2:
-                    error_message = "ErrID3: Missing arguments for inp command. Usage: inp var_name \"prompt\" [default]"
-                    print(f"{error_message}")
-                    if idle == 0: self.cmd_exit()
-
-                # Extract arguments
+                    raise ValueError("Missing arguments. Expected at least variable name and prompt")
+                    
+                # Extract and validate arguments
                 var_name = args[0]
+                if not var_name.isidentifier():
+                    raise ValueError(f"'{var_name}' is not a valid variable name")
+                    
                 prompt = args[1]
                 default = args[2] if len(args) > 2 else None
-
-                # Prompt user for input
-                user_input = input(f"{prompt} [{default if default else 'no default'}]: ").strip()
-
-                # Use default if input is empty
+                
+                # Build and display the input prompt
+                prompt_text = f"{prompt}"
+                if default is not None:
+                    prompt_text += f" [default: {default}]"
+                prompt_text += ": "
+                
+                # Get user input
+                user_input = input(prompt_text).strip()
+                
+                # Use default if input is empty and default exists
                 if not user_input and default is not None:
                     user_input = default
-
-                # Dynamically detect the type of input
-                if user_input.lower() in ["true", "false"]:
-                    value, var_type = (user_input.lower() == "true", 'bool')
-                elif user_input.isnumeric():
-                    value, var_type = (int(user_input), 'int')
-                elif user_input.replace('.', '', 1).isdigit() and user_input.count('.') == 1:
-                    value, var_type = (float(user_input), 'float')
+                elif not user_input:
+                    raise ValueError("No input provided and no default specified")
+                    
+                # Determine the type of input and convert if needed
+                if user_input.lower() in ("true", "false"):
+                    value = user_input.lower() == "true"
+                    var_type = "bool"
+                elif user_input.isdigit():
+                    value = int(user_input)
+                    var_type = "int"
+                elif user_input.replace('.', '', 1).isdigit() and user_input.count('.') < 2:
+                    value = float(user_input)
+                    var_type = "float"
                 else:
-                    value, var_type = (user_input, 'str')
-
-                # Update existing variable or store a new one
-                if var_name in self.variables:
-                    self.variables[var_name] = (value, var_type)
-                    self.cmd_log(f"Updated variable: {var_name} = {value} ({var_type})")
-                else:
-                    self.store_variable(var_name, value, var_type)
-                    self.cmd_log(f"Stored input: {var_name} = {value} ({var_type})")
-
+                    value = user_input
+                    var_type = "str"
+                
+                # Store or update the variable
+                self.store_variable(var_name, value, var_type)
+                self.cmd_log(f"Stored input: {var_name} = {value} ({var_type})")
+                
             except Exception as e:
                 error_message = f"Error in inp command: {str(e)}"
                 if self.control_stack and self.control_stack[-1]["type"] == "try":
@@ -1192,8 +1176,8 @@ try:
                     self.cmd_log(f"[ERROR] {error_message}")
                 else:
                     print(f"{error_message}")
-                    self.cmd_exit("Exiting due to error in inp command.")
-
+                    if idle == 0: 
+                        self.cmd_exit("Exiting due to error in inp command.")
         def cmd_fetch(self, args):
             if len(args) < 1:
                 print("ErrID3: Incorrect number of arguments for fetch command")
@@ -1588,7 +1572,7 @@ try:
             else:
                 print("Warning: Could not find the Command Prompt window.")
         def cmd_reinit(self): #to bring back the interpreter to its initial state. 
-            self.cmd_flush()
+            self.flush()
 
             import argparse
             import time
@@ -1664,7 +1648,7 @@ try:
     if __name__ == "__main__":
         main()
 except (KeyboardInterrupt, EOFError):
-    print("\nExiting.")
+    print("\n")
 
 except Exception as e:
     print(f"[CRITICAL ERROR]: {e},\nTerminating script.")
