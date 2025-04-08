@@ -1,1 +1,2 @@
 #NOTE#28.3.25:Kindly note that the eclipse prototype(s) usage is deprecated. 
+#NOTE#9.4.25:Using FASTMATH or the quake iii algorithm can cause data loss or may cause performance spikes, use at your own risk.
