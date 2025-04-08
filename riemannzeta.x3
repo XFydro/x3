@@ -1,0 +1,18 @@
+reg float sum 0
+reg int n 1
+reg int max 10000
+reg int report_interval 1000
+reg int current ##timestamp
+while n <= max
+    fastmath term = 1/(n*n) method=numpy
+    fastmath sum = sum + term
+    fastmath n = n+1    
+    reg int m $n % $report_interval
+    if m == 0
+        prt "Progress: $n/$max | Current sum: $sum"
+    end
+end
+reg int later ##timestamp
+reg int taken $later-$current
+prt "Final sum of 1/n²: $sum, time taken: $taken, used method: NumPy" 
+prt "Expected π²/6: 1.6449340668482264"
