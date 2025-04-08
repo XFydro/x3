@@ -11,6 +11,7 @@
 #ECDP16-03-2025--#7:Fixed integer evaluation and registration
 #ECDP16-03-2025--#8:removed bunch of unused/deprecated/broken keywords/statements/functions.
 #ECDPADDITION28-03-2025--#9:Added a interpreter state reinit command.
+#ECDPADDITION8TO9-04-2025--#10Added fastmath algorithms and methods like quake iii and numpy calculation alternatives.
 
 
 
