@@ -10,6 +10,10 @@ import difflib
 import subprocess
 import sys
 import importlib
+import random
+import math
+import numpy as np
+import struct
 idle=0 #on default script mode.
 version=3.6 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
@@ -57,7 +61,7 @@ __Patience because python is slow af :P
 try:
     
     class Interpreter:
-        def __init__(self, debug=False): #debug set to false as default, you wouldn't want 100 lines of debug as default dont you?
+        def __init__(self, debug=False): 
             self.current_line=0
             self.variables = {} #variable dictionary
             self.functions = {} #function dictionary, kinda messy
@@ -77,6 +81,8 @@ try:
             self.reqdebug=False
             self.conddebug=False
             #---
+            #Rules Init--
+            self.fastmathrule=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
             self.command_mapping = { 
                 'terminal': self.cmd_open_terminal,
                 'goto': self.cmd_goto,
@@ -95,6 +101,7 @@ try:
                 'str_len': self.str_len,
                 'reg': self.cmd_reg,
                 'prt': self.cmd_prt,
+                'fastmath': self.cmd_fastmath,
                 'add': self.cmd_add,
                 'sub': self.cmd_sub,
                 'mul': self.cmd_mul,
@@ -165,18 +172,26 @@ try:
                     "-bold/cyan": "\033[1;96m",   # Bold bright cyan
                     "-bold/white": "\033[1;97m",  # Bold bright white
                 }
+
+            self.additional_parameters = {
+                "##random": lambda: random.random(),
+                "##randint": lambda: random.randint(0, 100),
+                "##timeseconds": lambda: time.time(),
+                "##timestamp": lambda: int(time.time())
+                }
+
         def info(self):
             print(version)
         def flush(self):
-            self.variables = {}
-            self.functions = {}
-            self.control_stack = []
-            self.debug = False
-            self.debuglog = []
-            self.output = None
-            self.log_messages = []
-            self.functions = {}
-            self.execution_state = {}
+            self.current_line=0
+            self.variables = {} #variable dictionary
+            self.functions = {} #function dictionary, kinda messy
+            self.control_stack = [] #that if else and stuff, for basic control flow monitoring
+            self.debug = False #only used as a placeholder, replaced by the new BETTER debug system
+            self.debuglog = [] #i have no idea why i made this
+            self.output = None #output for functions like fetch, i will think of improving this.
+            self.log_messages = [] #old log messages record, still works but deprecated
+            self.execution_state = {} #thought of removing this but it is still used in some control flow magic so ye.
             #Debug Init---
             self.ctrflwdebug = False
             self.prtdebug = False
@@ -186,7 +201,12 @@ try:
             self.cmdhandlingdebug = False
             self.reqdebug=False
             self.conddebug=False
-            #---         
+            #---
+            #Rules Init--
+            self.fastmathrule=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.  
+        def comment_strip(self, s):
+            return s.split('\\')[0]
+
         def load(self, filename):
             try:
                 interpreter = Interpreter()
@@ -555,6 +575,7 @@ try:
                 # Log message if needed
                 if settings["log_message"]:
                     self.log_messages.append(args)
+                args = self.replace_additional_parameters(args)
 
                 # Handle output & animated printing with delay
                 if settings["delay"]:
@@ -707,18 +728,18 @@ try:
                 self.in_function_definition = False  # Update the flag to exit definition mode
         def handle_command(self, command):     
             """Processes commands, handles function definitions, and executes appropriately."""
-            
             if command.startswith("prt"):
                 parts = re.findall(r'\S+|\s+', command)
             else:
                 parts = command.split()
 
-            if not command or command.startswith("//"):  # Ignore comments or empty lines
+            if not command or command.startswith("//") or command.startswith("\\"):  # Ignore comments or empty lines
                 return
             if not command.startswith('prt '):
                 command = command.strip()
             else:
                 command = command[4:]  # Remove "prt " but keep spaces
+            
             cmd = parts[0].strip()
 
             # FIRST, CHECK `should_execute()`
@@ -743,6 +764,7 @@ try:
                     self.command_mapping[cmd]()
                 else:
                     args = ' '.join(parts[1:]).strip()
+                    args = self.comment_strip(args)
                     self.command_mapping[cmd](args)
                 if self.cmdhandlingdebug:
                     print(f"[DEBUG] Command '{cmd}' executed with args: '{args if 'args' in locals() else ''}'")
@@ -887,9 +909,15 @@ try:
 
                 print(f"ErrID72: Variable '{var_name}' not found.")
                 if idle == 0: self.cmd_exit()
-
         def similarity_percentage(self, str1, str2):
-            return int(difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100)
+            similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
+            return float(similarity)
+        def replace_additional_parameters(self, input_str):
+            for key, func in self.additional_parameters.items():
+                if key in input_str:
+                    result = str(func())
+                    input_str = input_str.replace(key, result)
+            return input_str
 
         def cmd_reg(self, raw_args):
             """
@@ -900,6 +928,7 @@ try:
             reg int var1 5
             reg int var2 (var1 * 10) / 2 eval=True
             """
+            raw_args = self.replace_additional_parameters(raw_args)
 
             parts = raw_args.split()
             if len(parts) < 3:
@@ -911,24 +940,28 @@ try:
             var_name = parts[1]   # Variable name
             var_value = " ".join(parts[2:])  # Everything after var name
             if "|+|" in var_value:
-                var_value = re.sub(r'(\w+)\s*\|\+\|\s*(\w+)', r'self.similarity_percentage(\1, \2)', var_value)
-
+                var_value = re.sub(
+                    r'(\w+)\s*\|\+\|\s*(\w+)',
+                    lambda match: str(self.similarity_percentage(match.group(1), match.group(2))),  # Convert to str
+                    var_value
+                )
             # Check if eval=True is present
             math_mode = "eval=True" in var_value
             if math_mode:
                 var_value = var_value.replace("eval=True", "").strip().strip('"')  # Remove extra quotes
 
-            for var in re.findall(r'\b[a-zA-Z_]\w*\b', var_value):  
-                if var in self.variables:  
-                    var_type = type(self.variables[var][0])
-                    if var_type == str:
-                        var_value = var_value.replace(var, f'"{self.variables[var][0]}"')  # Keep as string
+            matches = re.findall(r'\$([a-zA-Z_]\w*)', var_value)
+            for var in matches:
+                if var in self.variables:
+                    var_data = self.variables[var][0]
+                    if isinstance(var_data, str):
+                        replacement = f'"{var_data}"'
                     else:
-                        var_value = var_value.replace(var, str(self.variables[var][0]))  # Convert numbers properly
+                        replacement = str(var_data)
 
-                if self.cmdhandlingdebug:
-                    print(f"[DEBUG] Math expression before eval: {var_value} (Type: {type(var_value)})")  # 🚀 Debugging
-
+                    var_value = re.sub(rf'\${var}\b', replacement, var_value)
+                else:
+                    raise ValueError(f"Variable '${var}' not found.")
             try:
                 # Skip eval() if var_value is already numeric
                 if isinstance(var_value, (int, float)) or var_value.replace(".", "", 1).isdigit():
@@ -945,6 +978,7 @@ try:
                 return
             except SyntaxError:
                 print(f"ErrId84: Invalid Expression: {var_value}")
+                if idle == 0: self.cmd_exit()
                 return
             except Exception as e:
                 if self.mathdebug:
@@ -1399,6 +1433,74 @@ try:
 
         def cmd_mod(self, args):
             self.perform_arithmetic_operation(args, operation="mod")
+        def _fast_inv_sqrt(self, x):
+            """Quake III Fast Inverse Square Root Algorithm"""
+            if x <= 0:
+                return float('inf')
+            i = struct.unpack('>l', struct.pack('>f', x))[0]
+            i = 0x5F3759DF - (i >> 1)
+            y = struct.unpack('>f', struct.pack('>l', i))[0]
+            return y * (1.5 - 0.5 * x * y * y)
+
+        def cmd_fastmath(self, args):
+            """Hyper-optimized math evaluation with multiple backends:
+            fastmath var = <expression> [method=(quake|numpy|math)]
+            """
+            try:
+                # Remove comments
+                args = args.split('//')[0].strip()
+
+                # Extract method if present
+                method_match = re.search(r'\bmethod=(quake|numpy|math)\b', args)
+                method = method_match.group(1) if method_match else 'math'
+                args = re.sub(r'\bmethod=(quake|numpy|math)\b', '', args).strip()
+
+                # Parse assignment
+                if '=' not in args:
+                    raise ValueError("Syntax: fastmath <var> = <expression> [method=quake|numpy|math]")
+                var_name, expr = map(str.strip, args.split('=', 1))
+
+                # Prepare variable context for safe eval
+                var_cache = {k: v[0] for k, v in self.variables.items()}
+
+                # Only replace full variable names, avoid replacing 'math' or 'sqrt'
+                def safe_replace(match):
+                    var = match.group(0)
+                    return str(var_cache.get(var, var))
+                expr = re.sub(r'\$([a-zA-Z_]\w*)', safe_replace, expr)
+
+                # Handle inverse square root pattern
+                if re.search(r'\*\*-0\.5|\*\*\(-0\.5\)|\/?sqrt\(', expr):
+                    if method == 'quake':
+                        sqrt_match = re.search(r'sqrt\(([^)]+)\)', expr)
+                        if sqrt_match:
+                            x_val = float(eval(sqrt_match.group(1), {'__builtins__': None}, var_cache))
+                        else:
+                            x_val = float(eval(expr.split('**')[0].strip('()'), {'__builtins__': None}, var_cache))
+                        result = self._fast_inv_sqrt(x_val)
+                    elif method == 'numpy':
+                        result = eval(expr, {'__builtins__': None, 'np': np}, var_cache)
+                    else:  # math
+                        result = eval(expr, {'__builtins__': None, 'math': math}, var_cache)
+                else:
+                    # Standard math evaluation
+                    scope = {'__builtins__': None}
+                    if method == 'numpy':
+                        scope['np'] = np
+                    elif method == 'math':
+                        scope['math'] = math
+                    result = eval(expr, scope, var_cache)
+
+                # Store result
+                self.variables[var_name] = [
+                    float(result) if isinstance(result, (float, np.floating)) else int(result),
+                    'float' if isinstance(result, (float, np.floating)) else 'int'
+                ]
+
+            except Exception as e:
+                print(f"FastMath Error: {e}")
+                if idle == 0:
+                    self.cmd_exit()
 
         def perform_arithmetic_operation(self, args, operation):
             """
