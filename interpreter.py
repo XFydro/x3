@@ -1,6 +1,7 @@
 #this software is licenced under CCPA4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
 #ECLIPSE PROTOTYPE 0.6
 import argparse
+import cProfile
 import time
 import re
 import os as sys1
@@ -15,7 +16,7 @@ import math
 import numpy as np
 import struct
 idle=0 #on default script mode.
-version=3.6 #version (For IDE and more)
+version=3.7 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     try:
         # Try importing the package
@@ -292,93 +293,89 @@ try:
         def cmd_while(self, condition):
             """
             Implements a while-loop functionality with proper nested execution.
+            Skips pushing a new while-loop if the last one is on the same line.
             """
+            # Check if the last control block is a while on the same line
+            if (self.control_stack and 
+                self.control_stack[-1]["type"] == "while" and 
+                self.control_stack[-1]["start_line"] == self.current_line):
+                if self.ctrflwdebug:
+                    print(f"[DEBUG] Skipping duplicate WHILE on line {self.current_line}")
+                return  # Exit without pushing a new while
+
             try:
                 result = self.eval_condition(condition)
                 self.control_stack.append({
                     "type": "while",
                     "condition": condition,
                     "executed": result,
-                    "start_line": self.current_line  # 🚀 STORE WHERE WHILE STARTED
+                    "start_line": self.current_line  # Store where while started
                 })
                 if self.ctrflwdebug:
                     print(f"[DEBUG] WHILE condition '{condition}' evaluated to {result}, pushed to stack.")
             except ValueError as e:
                 print(f"ErrId90: Invalid WHILE condition '{condition}'. Details: {e}")
-                if idle == 0: self.cmd_exit()
-
+                if idle == 0:  # Note: Should this be self.idle?
+                    self.cmd_exit()
         def cmd_end(self):
-            """
-            Properly handle 'end' for while loops, ensuring they actually repeat.
-            """
+            """Properly handle 'end' for while loops, ensuring they actually repeat."""
             if not self.control_stack:
-                print("ErrId91: END without a matching control block.")
-                if idle == 0: self.cmd_exit()
+                print("ErrId91: END without a matching control block")
+                if idle == 0: 
+                    self.cmd_exit()
                 return
 
             popped_block = self.control_stack.pop()
-            if self.ctrflwdebug:
+            debug = self.ctrflwdebug  # Cache debug flag
+            
+            if debug:
                 print(f"[DEBUG] END: Popped block: {popped_block}")
 
             if popped_block["type"] == "while":
                 if self.eval_condition(popped_block["condition"]):
-                    self.control_stack.append(popped_block)  # Keep the loop running
-                    self.current_line = popped_block["start_line"] - 1  # 🚀 JUMP BACK TO WHILE!
-                else:
-                    if self.ctrflwdebug:
-                        print(f"[DEBUG] Exiting WHILE loop: {popped_block}")
+                    # Loop continues - jump back to while
+                    self.control_stack.append(popped_block)
+                    self.current_line = popped_block["start_line"] - 1
+                elif debug:
+                    print(f"[DEBUG] Exiting WHILE loop: {popped_block}")
 
-            if self.control_stack:
-                self.execution_state = self.control_stack[-1]["executed"]
-            else:
-                self.execution_state = True  # Default to true if no conditions are left
-
+            # Update execution state
+            self.execution_state = (
+                self.control_stack[-1]["executed"] 
+                if self.control_stack 
+                else True
+            )
         def find_while_start(self, condition):
             """Finds the start of the while loop in the script."""
-            for i in range(self.current_line, -1, -1):  # Search backward
-                if self.lines[i].strip().startswith("while ") and condition in self.lines[i]:
-                    return i  # Jump back to this line
-            return self.current_line  # Fail-safe to avoid crashes
-
+            for i in range(self.current_line, -1, -1):
+                line = self.lines[i].strip()
+                if line.startswith("while ") and condition in line:
+                    return i + 1  # Return line after while statement
+            return self.current_line
         def should_execute(self):
             """
             Determine if the current block should execute based on active IF conditions.
             """
+            
             if not self.control_stack:
-                return True  # No active conditions, execute normally
+                return True
+            for block in reversed(self.control_stack):
+                if ((block["type"] == "if" and not block["executed"]) or 
+                    (block["type"] == "else" and not block["executed"])):
+                    return False
 
-            for i in range(len(self.control_stack) - 1, -1, -1):
-                block = self.control_stack[i]
-                if self.ctrflwdebug:
-                    print(f"[DEBUG] Checking control block at depth {i}: {block}")
-
-                if block["type"] == "if" and not block["executed"]:
-                    if self.ctrflwdebug:
-                        print("[DEBUG] Skipping execution due to failed IF condition.")
-                    return False  # If any parent IF failed, block execution
-
-                if block["type"] == "else" and not block["executed"]:
-                    if self.ctrflwdebug:
-                        print("[DEBUG] Skipping execution due to failed ELSE condition.")
-                    return False  # Block ELSE if the IF was True
-
-            return True  # Default: Execute if no issues were found
-
+            return True 
         def eval_condition(self, condition_str):
             """
             Evaluate an IF condition while ensuring AND (" & ") has higher precedence than OR (" | ").
             Supports negation (!var) and extended comparisons (startswith, endswith, contains).
             """
-            if self.conddebug:
-                print(f"[DEBUG] Processing IF condition: {condition_str}")  
 
             # Step 1: Process AND conditions first
             def process_and_conditions(and_condition):
                 """Ensure AND conditions are evaluated before OR."""
                 and_parts = and_condition.split(" & ")
-                results = [process_single_condition(cond.strip()) for cond in and_parts]
-                if self.conddebug:
-                    print(f"[DEBUG] AND Conditions: {and_parts} -> {results}")  
+                results = [process_single_condition(cond.strip()) for cond in and_parts] 
                 return all(results)
 
             # Step 2: Split OR conditions, evaluating AND groups first
@@ -425,7 +422,7 @@ try:
                 # Convert both values to numeric if possible
                 left_value = try_convert(left_value)
                 right_value = try_convert(right_value)
-
+                
                 # Ensure both sides are comparable
                 if isinstance(left_value, (int, float)) and isinstance(right_value, str):
                     if self.conddebug:
@@ -513,7 +510,6 @@ try:
             try:
                 # Preserve spaces inside quotes
                 args = raw_args[1:-1] if raw_args.startswith('"') and raw_args.endswith('"') else raw_args
-                args = re.sub(r"(?<!\\)/n", "\n", args)  # Replace `/n` with newlines
 
                 # Parse settings using regex
                 settings_pattern = re.compile(r"(align|delay|title|tofile|format|case|border|effect|log)(?:=(\S+))?")
@@ -726,52 +722,58 @@ try:
                 # Remove the current function context
                 del self.current_function_name
                 self.in_function_definition = False  # Update the flag to exit definition mode
-        def handle_command(self, command):     
+        def handle_command(self, command):
             """Processes commands, handles function definitions, and executes appropriately."""
-            if command.startswith("prt"):
-                parts = re.findall(r'\S+|\s+', command)
-            else:
-                parts = command.split()
-
-            if not command or command.startswith("//") or command.startswith("\\"):  # Ignore comments or empty lines
+            # Early return for empty lines or comments
+            if not command or command.startswith(("//", "\\")):
                 return
-            if not command.startswith('prt '):
-                command = command.strip()
-            else:
-                command = command[4:]  # Remove "prt " but keep spaces
-            
-            cmd = parts[0].strip()
 
-            # FIRST, CHECK `should_execute()`
+            # Prepare command parts (special handling for 'prt' to preserve spaces)
+            is_prt = command.startswith('prt ')
+            if is_prt:
+                parts = re.findall(r'\S+|\s+', command)
+                cmd = 'prt'
+                args = command[4:]  # Keep original spacing after 'prt'
+            else:
+                command = command.strip()
+                parts = command.split()
+                if not parts:  # Handle case where command was all whitespace
+                    return
+                cmd = parts[0]
+                args = ' '.join(parts[1:]).strip()
+
+            # Strip comments from arguments (except for prt which handles its own formatting)
+            if not is_prt and "//" in args:
+                args = self.comment_strip(args)
+
+            # Check execution state
             if not self.should_execute():
                 if cmd in {"else", "end"}:
                     if self.ctrflwdebug:
-                        print(f"[DEBUG] Handling '{cmd}' command even in a failed IF block.")
-                    self.command_mapping[cmd]()  # Ensure `else` and `end` always execute
-                    return
-                if self.cmdhandlingdebug:
-                    print(f"[DEBUG] Skipping command '{command}' due to failed IF condition.")
-                return  # Exit immediately, preventing execution
+                        print(f"[DEBUG] Handling '{cmd}' command even in failed IF block")
+                    self.command_mapping[cmd]()
+                elif self.cmdhandlingdebug:
+                    print(f"[DEBUG] Skipping command '{command}' due to failed IF condition")
+                return
 
-            # If command is recognized, handle it
+            # Execute recognized commands
             if cmd in self.command_mapping:
                 if self.cmdhandlingdebug:
                     print(f"[DEBUG] Handling command: '{command}'")
-                
-                # Process commands that don't require arguments
-                no_arg_commands = ["else","end","dev.custom","flush","--info","reinit"]
+
+                # No-arg commands
+                no_arg_commands = {"else", "end", "dev.custom", "flush", "--info", "reinit"}
                 if cmd in no_arg_commands:
                     self.command_mapping[cmd]()
                 else:
-                    args = ' '.join(parts[1:]).strip()
-                    args = self.comment_strip(args)
                     self.command_mapping[cmd](args)
-                if self.cmdhandlingdebug:
-                    print(f"[DEBUG] Command '{cmd}' executed with args: '{args if 'args' in locals() else ''}'")
-            else:
-                print(f"ErrId73: Unrecognized command: {command}.")
-                if idle == 0: self.cmd_exit()
 
+                if self.cmdhandlingdebug:
+                    print(f"[DEBUG] Command '{cmd}' executed with args: '{args}'")
+            else:
+                print(f"ErrId73: Unrecognized command: {command}")
+                if idle == 0:  # Note: 'idle' should probably be 'self.idle'?
+                    self.cmd_exit()
         def dev(self, raw_args):
             """
             Enable or disable various debugging options dynamically.
@@ -1441,67 +1443,69 @@ try:
             i = 0x5F3759DF - (i >> 1)
             y = struct.unpack('>f', struct.pack('>l', i))[0]
             return y * (1.5 - 0.5 * x * y * y)
-
         def cmd_fastmath(self, args):
             """Hyper-optimized math evaluation with multiple backends:
             fastmath var = <expression> [method=(quake|numpy|math)]
             """
             try:
-                # Remove comments
-                args = args.split('//')[0].strip()
+                # Precompile regex patterns for better performance
+                COMMENT_PATTERN = re.compile(r'//.*')
+                METHOD_PATTERN = re.compile(r'\bmethod=(quake|numpy|math)\b')
+                VAR_PATTERN = re.compile(r'\$([a-zA-Z_]\w*)')
+                SQRT_PATTERN = re.compile(r'sqrt\(([^)]+)\)')
+                INV_SQRT_PATTERN = re.compile(r'\*\*-0\.5|\*\*\(-0\.5\)|\/?sqrt\(')
 
-                # Extract method if present
-                method_match = re.search(r'\bmethod=(quake|numpy|math)\b', args)
+                # Strip comments and whitespace in one pass
+                args = COMMENT_PATTERN.sub('', args).strip()
+
+                # Extract method (default to 'math')
+                method_match = METHOD_PATTERN.search(args)
                 method = method_match.group(1) if method_match else 'math'
-                args = re.sub(r'\bmethod=(quake|numpy|math)\b', '', args).strip()
+                args = METHOD_PATTERN.sub('', args).strip()
 
-                # Parse assignment
-                if '=' not in args:
+                # Parse assignment more robustly
+                parts = args.split('=', 1)
+                if len(parts) != 2:
                     raise ValueError("Syntax: fastmath <var> = <expression> [method=quake|numpy|math]")
-                var_name, expr = map(str.strip, args.split('=', 1))
+                var_name, expr = map(str.strip, parts)
 
-                # Prepare variable context for safe eval
+                # Create evaluation context
                 var_cache = {k: v[0] for k, v in self.variables.items()}
+                safe_globals = {'__builtins__': None}
 
-                # Only replace full variable names, avoid replacing 'math' or 'sqrt'
+                # Optimized variable substitution
                 def safe_replace(match):
-                    var = match.group(0)
-                    return str(var_cache.get(var, var))
-                expr = re.sub(r'\$([a-zA-Z_]\w*)', safe_replace, expr)
+                    var = match.group(1)
+                    return str(var_cache.get(f'${var}', match.group(0)))
+                expr = VAR_PATTERN.sub(safe_replace, expr)
 
-                # Handle inverse square root pattern
-                if re.search(r'\*\*-0\.5|\*\*\(-0\.5\)|\/?sqrt\(', expr):
-                    if method == 'quake':
-                        sqrt_match = re.search(r'sqrt\(([^)]+)\)', expr)
-                        if sqrt_match:
-                            x_val = float(eval(sqrt_match.group(1), {'__builtins__': None}, var_cache))
-                        else:
-                            x_val = float(eval(expr.split('**')[0].strip('()'), {'__builtins__': None}, var_cache))
-                        result = self._fast_inv_sqrt(x_val)
-                    elif method == 'numpy':
-                        result = eval(expr, {'__builtins__': None, 'np': np}, var_cache)
-                    else:  # math
-                        result = eval(expr, {'__builtins__': None, 'math': math}, var_cache)
+                # Determine evaluation strategy
+                if method == 'quake' and INV_SQRT_PATTERN.search(expr):
+                    # Handle inverse square root with Quake method
+                    sqrt_match = SQRT_PATTERN.search(expr)
+                    x_val = float(eval(
+                        sqrt_match.group(1) if sqrt_match else expr.split('**')[0].strip('()'),
+                        safe_globals,
+                        var_cache
+                    ))
+                    result = self._fast_inv_sqrt(x_val)
                 else:
-                    # Standard math evaluation
-                    scope = {'__builtins__': None}
+                    # Standard evaluation with selected backend
                     if method == 'numpy':
-                        scope['np'] = np
+                        safe_globals['np'] = np
                     elif method == 'math':
-                        scope['math'] = math
-                    result = eval(expr, scope, var_cache)
+                        safe_globals['math'] = math
+                    
+                    result = eval(expr, safe_globals, var_cache)
 
-                # Store result
-                self.variables[var_name] = [
-                    float(result) if isinstance(result, (float, np.floating)) else int(result),
-                    'float' if isinstance(result, (float, np.floating)) else 'int'
-                ]
+                # Store result with type detection
+                result_type = 'float' if isinstance(result, (float, np.floating)) else 'int'
+                self.variables[var_name] = [float(result) if result_type == 'float' else int(result), result_type]
 
             except Exception as e:
                 print(f"FastMath Error: {e}")
-                if idle == 0:
+                if not getattr(self, 'idle', 0):  # Safer idle check
                     self.cmd_exit()
-
         def perform_arithmetic_operation(self, args, operation):
             """
             Handles arithmetic operations dynamically with support for 'eq=True' flag.
@@ -1749,6 +1753,7 @@ try:
 
     if __name__ == "__main__":
         main()
+
 except (KeyboardInterrupt, EOFError):
     print("\n")
 
@@ -1756,4 +1761,4 @@ except Exception as e:
     print(f"[CRITICAL ERROR]: {e},\nTerminating script.")
 #Official 1k lines of code!!-November/24
 #Development Phase start of Eclispe-March/25
-#Official release of Eclispe prototype 0.6.
+#Official release of Eclispe prototype 0.7.
