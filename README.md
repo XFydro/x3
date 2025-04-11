@@ -70,7 +70,7 @@ Below is a simple "Hello World" program written in X3:
 ```x3
 prt "hello world"
 ```
-For any questions or suggestions, feel free to reach out at - [Our contact page.](https://x3documentation.neocities.org/contact).
+For any questions or suggestions, feel free to reach out at - [Our contact page.](https://x3documentation.neocities.org/contactus).
 
 ---
 
