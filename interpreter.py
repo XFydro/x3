@@ -1,4 +1,4 @@
-#this software is licenced under CCPA4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
+#this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
 #ECLIPSE PROTOTYPE 0.6
 import argparse
 import cProfile
