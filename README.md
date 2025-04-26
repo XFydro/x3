@@ -1,11 +1,11 @@
 
-# X3 DMI(Data Management Interpreter)
+# X3
 
 [Website](https://img.shields.io/website?url=https%3A%2F%2Fx3documentation.neocities.org)
-[Terms & Conditions](https://x3documentation.neocities.org/terms-and-conditions)
-[Download](https://x3documentation.neocities.org/downloads)
+[Terms & Conditions](https://x3lunadocumentation.neocities.org/terms-and-conditions)
+[Download](https://x3lunadocumentation.neocities.org/downloads)
 
-Welcome to the GitHub repository for the **X3 DMI**, for more info check [x3documentation.neocities.org](https://x3documentation.neocities.org).
+Welcome to the GitHub repository for the **X3**, for more info check [x3documentation.neocities.org](https://x3lunadocumentation.neocities.org).
 
 ---
 
@@ -57,7 +57,7 @@ To use the X3 interpreter locally, follow these steps:
 3. **Run the X3 Interpreter**:
 
     ```sh
-    python <interpretername>.py "-f" "your_script.x3"
+    python interpreter.py "-f" "your_script.x3"
     ```
 
 4. **Set Up in VS Code** (optional):
