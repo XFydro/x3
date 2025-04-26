@@ -24,9 +24,7 @@ IDLE_MODE = 0  # Default script mode
 VERSION = "3.9"  # Current version
 DEBUG_LOG_FILE = "x3_debug.log"
 
-class Interpreter:
-    """Main interpreter class for the X3 language."""
-    
+class Interpreter:    
     def __init__(self, debug: bool = False) -> None:
         """Initialize interpreter with default state."""
         self.current_line: int = 0
