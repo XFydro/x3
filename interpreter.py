@@ -1,5 +1,5 @@
 #this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
-#ECLIPSE PROTOTYPE 0.6
+#ECLIPSE PROTOTYPE 0.8
 import argparse
 import cProfile
 import time
@@ -15,8 +15,9 @@ import random
 import math
 import numpy as np
 import struct
+from difflib import SequenceMatcher
 idle=0 #on default script mode.
-version=3.7 #version (For IDE and more)
+version=3.85 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     try:
         # Try importing the package
@@ -66,6 +67,8 @@ try:
             self.current_line=0
             self.variables = {} #variable dictionary
             self.functions = {} #function dictionary, kinda messy
+            self.current_function_name = None
+            self.in_function_definition = False #flag to indicate if the code is currently in a function definition
             self.control_stack = [] #that if else and stuff, for basic control flow monitoring
             self.debug = False #only used as a placeholder, replaced by the new BETTER debug system
             self.debuglog = [] #i have no idea why i made this
@@ -81,6 +84,7 @@ try:
             self.cmdhandlingdebug = False
             self.reqdebug=False
             self.conddebug=False
+            self.vardebug=False
             #---
             #Rules Init--
             self.fastmathrule=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
@@ -365,123 +369,266 @@ try:
                     return False
 
             return True 
+
+        def replace_variables(self, text):
+            """
+            Replace all $var references in the input string with their actual values from self.variables.
+            Only replaces $ followed by valid variable names.
+            """
+
+            def replacer(match):
+                var_name = match.group(1)
+                if var_name in self.variables:
+                    val = self.variables[var_name][0]  # Assume [value]
+                    return str(val)
+                else:
+                    return f"<UNDEFINED:{var_name}>"  # Optional: or leave as is / raise error
+
+            # Match $var or $var123
+            return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", replacer, text)
         def eval_condition(self, condition_str):
             """
-            Evaluate an IF condition while ensuring AND (" & ") has higher precedence than OR (" | ").
-            Supports negation (!var) and extended comparisons (startswith, endswith, contains).
-            """
+            Evaluate a custom IF condition string. Supports:
+            - AND (&) / OR (|) with correct precedence (AND before OR)
+            - Negation with !
+            - Comparisons: ==, !=, >, <, >=, <=
+            - Advanced: startswith, contains, ==ic (case-insensitive), |+| (fuzzy similarity)
+            - Variables from self.variables (as lists) and literals (strings/numbers)
+            - Parentheses for grouping"""
 
-            # Step 1: Process AND conditions first
-            def process_and_conditions(and_condition):
-                """Ensure AND conditions are evaluated before OR."""
-                and_parts = and_condition.split(" & ")
-                results = [process_single_condition(cond.strip()) for cond in and_parts] 
-                return all(results)
+            if self.conddebug:
+                print(f"[DEBUG] Evaluating condition: {condition_str}")
 
-            # Step 2: Split OR conditions, evaluating AND groups first
-            or_conditions = condition_str.split(" | ")
-            
-            def try_convert(value):
-                """Attempts to convert strings to numbers when needed."""
-                if isinstance(value, (int, float)):
-                    return value
-                if isinstance(value, str) and value.replace(".", "", 1).isdigit():
-                    return float(value) if "." in value else int(value)
-                return value.strip('"')  # 🚨 STRIP QUOTES FROM STRINGS
+            condition_str = self.replace_variables(condition_str)
 
-            def process_single_condition(cond):
-                """Evaluate a single condition safely."""
-                parts = cond.split()
+            def debug(msg):
+                """Debug helper to print messages if conddebug is enabled.
+                   This avoids cluttering output when not debugging conditions,
+                   Print debug messages only if conddebug is enabled"""
 
-                # Handle negation (!var)
-                if len(parts) == 1:
-                    if parts[0].startswith("!"):
-                        var_name = parts[0][1:]  # Remove "!"
-                        result = var_name not in self.variables  # NOT condition
-                        if self.conddebug:
-                            print(f"[DEBUG] Condition '!{var_name}' -> {result}")  
+                if self.conddebug:
+                    print(f"[DEBUG] {msg}")
+
+            def get_value(token):
+                # Resolve a token to its actual value.
+                token = token.strip()
+                # If quoted string, strip quotes
+                if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
+                    val = token[1:-1]
+                    debug(f"Resolved literal string {token} -> {val!r}")
+                    return val
+                # If variable name in self.variables, return its first element
+                if token in self.variables:
+                    lst = self.variables[token]
+                    if not lst:
+                        debug(f"Warning: variable '{token}' is empty")
+                        return None
+                    val = lst[0]
+                    debug(f"Resolved variable '{token}' -> {val!r}")
+                    return val
+                # Try numeric conversion
+                try:
+                    if '.' in token:
+                        val = float(token)
+                    else:
+                        val = int(token)
+                    debug(f"Parsed numeric literal {token} -> {val!r}")
+                    return val
+                except ValueError:
+                    # Not a number, return as string
+                    debug(f"Interpreting token {token} as string {token!r}")
+                    return token
+
+            def compare_values(left, op, right):
+                # Perform comparison, with type-safety
+                debug(f"Comparing {left!r} {op} {right!r}")
+                # Handle None from missing var as False condition
+                if left is None or right is None:
+                    debug("One operand is None (undefined); comparison -> False")
+                    return False
+                # Numeric vs string: attempt to coerce
+                if isinstance(left, (int, float)) and isinstance(right, str):
+                    try:
+                        right = float(right) if '.' in right else int(right)
+                        debug(f"Coerced right operand to number: {right!r}")
+                    except ValueError:
+                        debug("Type mismatch (number vs non-numeric string); comparison -> False")
+                        return False
+                if isinstance(right, (int, float)) and isinstance(left, str):
+                    try:
+                        left = float(left) if '.' in left else int(left)
+                        debug(f"Coerced left operand to number: {left!r}")
+                    except ValueError:
+                        debug("Type mismatch (string vs non-numeric number); comparison -> False")
+                        return False
+
+                # Case-insensitive equal
+                if op == "==ic":
+                    if isinstance(left, str) and isinstance(right, str):
+                        result = left.lower() == right.lower()
+                        debug(f"Case-insensitive equal? -> {result}")
                         return result
-                    result = parts[0] in self.variables  # Normal EXISTS check
-                    if self.conddebug:
-                        print(f"[DEBUG] Condition '{parts[0]} exists' -> {result}")  
-                    return result
-                
-                elif len(parts) >= 3:
-                    left = parts[0]
-                    operator = parts[1]
-                    right = " ".join(parts[2:])  # Handle cases where right side has spaces
-                else:
-                    if self.conddebug:
-                        print(f"[DEBUG] Invalid condition format: {cond}")  
-                    return False  # Invalid format
+                    else:
+                        debug("==ic used on non-strings; comparison -> False")
+                        return False
 
-                # Resolve left and right values
-                left_value = self.variables.get(left, [left])[0]
-                right_value = self.variables.get(right, [right])[0] if right is not None else None
+                # startswith/contains assume string left operand
+                if op == "startswith":
+                    if isinstance(left, str):
+                        result = left.startswith(str(right))
+                        debug(f"{left!r}.startswith({right!r}) -> {result}")
+                        return result
+                    else:
+                        debug("startswith used on non-string; comparison -> False")
+                        return False
+                if op == "contains":
+                    if isinstance(left, str):
+                        result = str(right) in left
+                        debug(f"{right!r} in {left!r} -> {result}")
+                        return result
+                    else:
+                        debug("contains used on non-string; comparison -> False")
+                        return False
+                if op == "|+|":
+                    if isinstance(left, str) and isinstance(right, str):
+                        # Compute similarity percentage [0-100]
+                        ratio = SequenceMatcher(None, left, right).ratio() * 100  # returns float [0,100]
+                        debug(f"Similarity of {left!r} |+| {right!r} = {ratio:.1f}%")
+                        # Interpret condition as True if similarity >= threshold?
+                        # If right is numeric (threshold), we'd have to reframe.
+                        # Here we simply return the ratio for caller to compare.
+                        return ratio
+                    else:
+                        debug("|+| used on non-strings; comparison -> 0%")
+                        return 0
 
-                # Convert both values to numeric if possible
-                left_value = try_convert(left_value)
-                right_value = try_convert(right_value)
-                
-                # Ensure both sides are comparable
-                if isinstance(left_value, (int, float)) and isinstance(right_value, str):
-                    if self.conddebug:
-                        print(f"[DEBUG] Type mismatch: Cannot compare '{left_value}'({type(left_value)}) with '{right_value}'({type(right_value)})") 
+                # Numeric and default comparisons
+                try:
+                    if op == "==":
+                        return left == right
+                    elif op == "!=":
+                        return left != right
+                    elif op == ">":
+                        return left > right
+                    elif op == "<":
+                        return left < right
+                    elif op == ">=":
+                        return left >= right
+                    elif op == "<=":
+                        return left <= right
+                except Exception as e:
+                    debug(f"Error during comparison: {e}")
                     return False
-                if isinstance(left_value, str) and isinstance(right_value, (int, float)):
-                    if self.conddebug:
-                        print(f"[DEBUG] Type mismatch: Cannot compare '{left_value}'({type(left_value)}) with '{right_value}'({type(right_value)})") 
-                    return False
-                if self.conddebug:
-                    print(f"[DEBUG] Evaluating: Left='{left_value}', Operator='{operator}', Right='{right_value}'")  
-                comparisons = {
-                    "==": lambda x, y: x == y,
-                    "!=": lambda x, y: x != y,
-                    ">": lambda x, y: x > y,
-                    "<": lambda x, y: x < y,
-                    ">=": lambda x, y: x >= y,
-                    "<=": lambda x, y: x <= y,
 
-                    # Fixed Negated Comparisons
-                    "!>": lambda x, y: not (x > y),
-                    "!<": lambda x, y: not (x < y),
-                    "!>=": lambda x, y: not (x >= y),
-                    "!<=": lambda x, y: not (x <= y),
-                    "!==": lambda x, y: x is not y,
+                debug(f"Unknown operator {op}; comparison -> False")
+                return False
 
-                    # String Operations
-                    "startswith": lambda x, y: str(x).startswith(str(y)),
-                    "endswith": lambda x, y: str(x).endswith(str(y)),
-                    "contains": lambda x, y: str(y) in str(x),
-                    "!contains": lambda x, y: str(y) not in str(x),
-                    "==ic": lambda x, y: str(x).lower() == str(y).lower(),
+            def eval_simple(expr):
+                """Evaluate a simple expression without top-level & or |."""
+                expr = expr.strip()
+                # Parentheses
+                if expr.startswith("(") and expr.endswith(")"):
+                    # Ensure matching parentheses
+                    paren = 0
+                    for idx, ch in enumerate(expr):
+                        if ch == "(":
+                            paren += 1
+                        elif ch == ")":
+                            paren -= 1
+                            if paren == 0 and idx < len(expr)-1:
+                                break
+                    else:
+                        # Fully parenthesized
+                        debug(f"Evaluating parenthesized expr {expr}")
+                        return self.eval_condition(expr[1:-1])
 
-                    # Length-Based Comparisons
-                    "l==": lambda x, y: len(str(x)) == int(y),
-                    "l!=": lambda x, y: len(str(x)) != int(y),
-                    "l>": lambda x, y: len(str(x)) > int(y),
-                    "l<": lambda x, y: len(str(x)) < int(y),
+                # Split by whitespace to find tokens and operator
+                # We check multi-char ops first
+                ops = ["==ic", "|+|", ">=", "<=", "!=", "==", ">", "<", "startswith", "contains"]
+                for op in ops:
+                    parts = [p.strip() for p in expr.split(op)]
+                    if len(parts) == 2:
+                        left_val = get_value(parts[0])
+                        right_val = get_value(parts[1])
+                        result = compare_values(left_val, op, right_val)
+                        debug(f"Result of {parts[0]} {op} {parts[1]} -> {result}")
+                        return result
 
-                    # Identity Comparisons
-                    "is": lambda x, y: id(x) == id(y),
-                    "is not": lambda x, y: id(x) != id(y),
+                # If no operator, interpret as boolean of the value
+                val = get_value(expr)
+                truth = bool(val)
+                debug(f"Truth value of {expr!r} -> {truth}")
+                return truth
 
-                    # 🔥 New: `|+|` for Similarity Percentage (0-100%)
-                    "|+|": lambda x, y: int(difflib.SequenceMatcher(None, str(x), str(y)).ratio() * 100),
-                }
+            def eval_and(term):
+                """Evaluate AND-separated factors."""
+                factors = []
+                buf = ""
+                level = 0
+                in_quotes = None
+                for i, ch in enumerate(term):
+                    if ch in "\"'":
+                        if in_quotes is None:
+                            in_quotes = ch
+                        elif in_quotes == ch:
+                            in_quotes = None
+                    if ch == "(" and in_quotes is None:
+                        level += 1
+                    elif ch == ")" and in_quotes is None:
+                        level -= 1
+                    # Split on top-level &
+                    if ch == "&" and level == 0 and in_quotes is None:
+                        factors.append(buf.strip())
+                        buf = ""
+                    else:
+                        buf += ch
+                factors.append(buf.strip())
 
-                result = comparisons.get(operator, lambda x, y: False)(left_value, right_value)
-                if self.conddebug:
-                    print(f"[DEBUG] Condition '{left} {operator} {right}' -> {result}")  
+                result = True
+                for factor in factors:
+                    if factor.startswith("!"):
+                        debug(f"Applying negation to {factor[1:]}")
+                        res = not eval_simple(factor[1:])
+                    else:
+                        res = eval_simple(factor)
+                    result = result and bool(res)
+                    debug(f"AND so far -> {result}")
+                    if not result:
+                        break  # short-circuit
                 return result
 
-            # 🚨 Process AND conditions before OR
-            results = [process_and_conditions(cond.strip()) for cond in or_conditions]
-            if self.conddebug:
-                print(f"[DEBUG] OR Conditions: {or_conditions} -> {results}")  
-            return any(results)
+            # Main OR-level split
+            terms = []
+            buf = ""
+            level = 0
+            in_quotes = None
+            for i, ch in enumerate(condition_str):
+                if ch in "\"'":
+                    if in_quotes is None:
+                        in_quotes = ch
+                    elif in_quotes == ch:
+                        in_quotes = None
+                if ch == "(" and in_quotes is None:
+                    level += 1
+                elif ch == ")" and in_quotes is None:
+                    level -= 1
+                # Split on top-level |
+                if ch == "|" and level == 0 and in_quotes is None:
+                    terms.append(buf.strip())
+                    buf = ""
+                else:
+                    buf += ch
+            terms.append(buf.strip())
 
-
+            final_result = False
+            for term in terms:
+                res = eval_and(term)
+                debug(f"OR-term '{term}' -> {res}")
+                final_result = final_result or res
+                if final_result:
+                    break  # short-circuit OR
+            debug(f"Final result of '{condition_str}' -> {final_result}")
+            return final_result
 
         def cmd_prt(self, raw_args):
             """
@@ -714,19 +861,25 @@ try:
                 self.variables[var_name] = (self.output, data_type)    
             self.cmd_log(f"Stored variable '{var_name}' with value '{value}' and type {data_type}")
             
-        def cmd_fncend(self):
-            """Marks the end of a function definition."""
-            if hasattr(self, "current_function_name"):
-                if self.ctrflwdebug:
-                    print(f"[DEBUG] End of function definition for '{self.current_function_name}'")
-                # Remove the current function context
-                del self.current_function_name
-                self.in_function_definition = False  # Update the flag to exit definition mode
         def handle_command(self, command):
             """Processes commands, handles function definitions, and executes appropriately."""
             # Early return for empty lines or comments
             if not command or command.startswith(("//", "\\")):
                 return
+
+            if getattr(self, "in_function_definition", False):
+                if command.strip().lower() == "fncend":
+                    if self.cmdhandlingdebug:# Allow 'fncend' to break out of function definition mode (if applicable or else just store the command)
+                        print(f"[DEBUG] Executing 'fncend' to end function '{self.current_function_name}'")
+                    self.command_mapping["fncend"]()
+                    return
+                else:
+                    self.functions[self.current_function_name].append(command)
+                    if self.cmdhandlingdebug:
+                        print(f"[DEBUG] Command '{command}' saved in function '{self.current_function_name}'")
+                    return
+
+
 
             # Prepare command parts (special handling for 'prt' to preserve spaces)
             is_prt = command.startswith('prt ')
@@ -762,7 +915,7 @@ try:
                     print(f"[DEBUG] Handling command: '{command}'")
 
                 # No-arg commands
-                no_arg_commands = {"else", "end", "dev.custom", "flush", "--info", "reinit"}
+                no_arg_commands = {"else", "end", "dev.custom", "flush", "--info", "reinit", "fncend"}
                 if cmd in no_arg_commands:
                     self.command_mapping[cmd]()
                 else:
@@ -786,6 +939,7 @@ try:
             - dev colorama     → Enables Colorama debugging
             - dev requests     → Enables requests debugging
             - dev condition    → Enables condition evaluation debugging
+            - dev variable     → Enables variable handling debugging
             - dev All          → Enables all debugging options
             - dev cmdhandling  → Enables Command handling debugging
             - dev None         → Disables all debugging options
@@ -800,7 +954,8 @@ try:
                 "colorama": "clramadebug",
                 "requests": "reqdebug",
                 "cmdhandling": "cmdhandlingdebug",
-                "condition": "conddebug",  # 🆕 Added condition debugging
+                "condition": "conddebug",
+                "variable": "vardebug",
             }
 
             if not raw_args.strip():
@@ -941,12 +1096,8 @@ try:
             var_type = parts[0]   # int, float, str, etc.
             var_name = parts[1]   # Variable name
             var_value = " ".join(parts[2:])  # Everything after var name
-            if "|+|" in var_value:
-                var_value = re.sub(
-                    r'(\w+)\s*\|\+\|\s*(\w+)',
-                    lambda match: str(self.similarity_percentage(match.group(1), match.group(2))),  # Convert to str
-                    var_value
-                )
+            if self.vardebug:
+                print(f"[DEBUG] Parsed Variable '{var_name}' of type '{var_type}' with value '{var_value}'")
             # Check if eval=True is present
             math_mode = "eval=True" in var_value
             if math_mode:
@@ -1003,7 +1154,7 @@ try:
                 if idle == 0: self.cmd_exit()
                 return
 
-            if self.cmdhandlingdebug:
+            if self.vardebug:
                 print(f"[DEBUG] Registered variable '{var_name}' = {self.variables[var_name][0]} (Type: {var_type})")
 
         def cmd_delete_file(self, args):
@@ -1243,95 +1394,64 @@ try:
             print(f"Exiting, Error Code:{error}")
             exit(1)
 
-        """
-        //Deprecated
-        def cmd_for(self, args):
-            try:
-                loop_var, start, end, step = args
-                start, end, step = int(start), int(end), int(step)
-                self.loop_stack.append((loop_var, start, end, step))
-                for i in range(start, end, step):
-                    self.variables[loop_var] = (i, 'int')
-                    self.log_debug(f"Loop iteration {loop_var} = {i}")
-            except ValueError:
-                print("ErrID40: Invalid arguments for 'for' loop. Expected: var start end step")
-                if idle == 0: self.cmd_exit()
-        """
-        """
-        //Deprecated Version
-        def cmd_while(self, condition):
-            Implements the while-loop functionality in the interpreter.
-            Args:
-                condition (str): The loop condition to evaluate.
-            try:
-                # Parse the condition into left, operator, and right
-                left, operator, right = self.parse_condition(condition)
-                # Mark the start of a while-loop block
-                self.control_stack.append("while")
-                loop_body = []
-                # Collect commands for the loop body
-                while True:
-                    command="end"
-                    loop_body.append(command)
-                    break
-                # Execute the loop while the condition evaluates to True
-                while self.eval_condition(left, operator, right):
-                    for cmd in loop_body:
-                        self.handle_command(cmd)
-            except Exception as e:
-                print(f"[CRITICAL ERROR]: {e}")
-                if idle == 0: self.cmd_exit()
-        """
         def cmd_def(self, args):
             """
-            Define a new function. Begins a function definition mode where commands
-            will be stored in the function until `fncend` is encountered.
-            Args:
-                args (str): The name of the function to define.
-            Syntax:
-                def function_name
+            Starts the definition of a new function. Commands will be stored until 'fncend' is encountered.
+            Syntax: def function_name
             """
             try:
-                # Ensure arguments are provided
                 tokens = args.strip().split()
                 if len(tokens) != 1:
-                    print("ErrID3: Incorrect number of arguments for 'def' command. Expected syntax: def function_name")
+                    print("ErrID3: Incorrect number of arguments. Usage: def function_name")
                     if idle == 0: self.cmd_exit()
-
+                    return
 
                 function_name = tokens[0]
-
-                # Check if a function with the same name already exists
                 if function_name in self.functions:
-                    print(f"ErrID8: Function '{function_name}' already defined.")
+                    print(f"ErrID8: Function '{function_name}' is already defined.")
                     if idle == 0: self.cmd_exit()
+                    return
 
-
-                # Initialize a new function in the functions dictionary
                 self.functions[function_name] = []
                 self.current_function_name = function_name
-                self.in_function_definition = True  # Enter function definition mode
+                self.in_function_definition = True
 
-                # Debug log
-                self.log_debug(f"Defining function '{function_name}'")
-                print(f"Function '{function_name}' definition started. Add commands and end with 'fncend'.")
+                if self.ctrflwdebug:
+                    print(f"[DEBUG] Starting function definition: {function_name}")
 
-            except ValueError as e:
-                print(str(e))
-                self.cmd_exit("Exiting due to function definition error.")
             except Exception as e:
-                print(f"Unexpected error in 'def' command: {str(e)}")
-                self.cmd_exit("Exiting due to an unexpected error in 'def' command.")
-
-
-        def cmd_call(self, args):
-            """Call a defined function."""
-            function_name = args.split()[0]
-            if function_name not in self.functions:
-                print(f"ErrID36: Function '{function_name}' not defined.")
+                print(f"[ERROR] cmd_def: {e}")
                 if idle == 0: self.cmd_exit()
 
-            self.log_debug(f"Calling function '{function_name}'")
+        def cmd_fncend(self):
+            """
+            Marks the end of a function definition block.
+            """
+            if not getattr(self, "in_function_definition", False):
+                print("ErrID9: 'fncend' used outside of a function definition.")
+                if idle == 0: self.cmd_exit()
+                return
+
+            if self.ctrflwdebug:
+                print(f"[DEBUG] Function '{self.current_function_name}' definition completed.")
+
+            self.in_function_definition = False
+            self.current_function_name = None  # ✅ DO NOT DELETE!
+        def cmd_call(self, args):
+            function_name = args.strip()
+            if not function_name:
+                print("ErrID36: No function name specified in 'call'")
+                if idle == 0: self.cmd_exit()
+                return
+
+            if function_name not in self.functions:
+                print(f"ErrID37: Function '{function_name}' not defined.")
+                if idle == 0: self.cmd_exit()
+                return
+
+            if self.ctrflwdebug:
+                print(f"[DEBUG] Calling function '{function_name}' with {len(self.functions[function_name])} command(s)")
+
             for command in self.functions[function_name]:
                 self.handle_command(command)
 
@@ -1393,22 +1513,6 @@ try:
             else:
                 print(f"ErrID34: Variable '{var_name}' not defined or not an integer.")
                 if idle == 0: self.cmd_exit()
-        """
-        #Removed In Eclipse.
-        def cmd_repeat(self, args):
-            if len(args) != 2:
-                print("ErrID3: Incorrect number of arguments for repeat command")
-                if idle == 0: self.cmd_exit()
-
-            try:
-                loop_count = int(args[0])
-                command_to_repeat = args[1]
-                for _ in range(loop_count):
-                    self.handle_command(command_to_repeat)
-            except ValueError:
-                print("ErrID3: Loop count must be an integer.")
-                if idle == 0: self.cmd_exit()
-        """
         def cmd_wait(self, args):
             """Wait for a specified number of seconds."""
 
@@ -1710,7 +1814,6 @@ try:
                 except ValueError:
                     print(f"ErrId76: Invalid line number '{line_number}'. Must be an integer.")
                     if idle == 0: self.cmd_exit()
-
                 except Exception as e:
                     print(f"[CRITICAL ERROR]: '{e}'")    
             else:
@@ -1722,7 +1825,7 @@ try:
             parser.add_argument('-d', '--debug', action='store_true', help='Enable debug mode')
             args = parser.parse_args()
             
-            #uses debug mode if nessecary
+            #uses debug mode if nessecary idk
             interpreter = Interpreter(debug=args.debug)
 
             # If a file is provided, read commands from the file
@@ -1735,7 +1838,7 @@ try:
                         while interpreter.current_line < len(interpreter.script_lines):
                             line = interpreter.script_lines[interpreter.current_line].strip()
                             interpreter.handle_command(line)
-                            interpreter.current_line += 1  # Move to the next line unless `goto` changes it
+                            interpreter.current_line += 1  # Move to the next line unless `goto` changes it (i hope this doesnt breaks anything)
 
                 except Exception as exc:
                     print(f"[CRITICAL ERROR] Could not load {args.file} due to reason:{exc}")            
@@ -1753,7 +1856,6 @@ try:
 
     if __name__ == "__main__":
         main()
-
 except (KeyboardInterrupt, EOFError):
     print("\n")
 
