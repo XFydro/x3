@@ -1,3 +1,4 @@
+(ECDP: Eclipse development phase, LEGACY: Versions before v3.8.)
 #LEGACYpatch23:42 13-01-2025--#1:Install packages automatically.
 #LEGACYpatch21:29 05-02-2025--#2:Fixed Log Functionality
 #LEGACYpatch22:10 11-02-2025--#3:Fixed Fetch Functionality
@@ -8,10 +9,12 @@
 #ECDPADDITION12-02-2025--#4:Added a "eval=true" flag in reg statement for variable evaluation first
 #ECDP12-02-2025--#5:Fixed UTF encoding problems (addition of a new statement "encode")
 #ECDP13-03-2025--#6:Fixed Variable registering and removed the usuage of eval flag for evaluation in int/float types. 
-#ECDP16-03-2025--#7:Fixed integer evaluation and registration
+#ECDP16-03-2025--#7:Fixed integer evaluation and registration.
 #ECDP16-03-2025--#8:removed bunch of unused/deprecated/broken keywords/statements/functions.
 #ECDPADDITION28-03-2025--#9:Added a interpreter state reinit command.
 #ECDPADDITION8TO9-04-2025--#10Added fastmath algorithms and methods like quake iii and numpy calculation alternatives.
+#ECDP02-06-25--#9:Fixed Function declaration and condition evaluation.
+
 
 
 
