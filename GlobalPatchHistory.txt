@@ -1,4 +1,4 @@
-(ECDP: Eclipse development phase, LEGACY: Versions before v3.8.)
+(ECDP: Eclipse development phase, MDP: MintEclipse development phase, LEGACY: Versions before v3.8.)
 #LEGACYpatch23:42 13-01-2025--#1:Install packages automatically.
 #LEGACYpatch21:29 05-02-2025--#2:Fixed Log Functionality
 #LEGACYpatch22:10 11-02-2025--#3:Fixed Fetch Functionality
@@ -14,6 +14,10 @@
 #ECDPADDITION28-03-2025--#9:Added a interpreter state reinit command.
 #ECDPADDITION8TO9-04-2025--#10Added fastmath algorithms and methods like quake iii and numpy calculation alternatives.
 #ECDP02-06-25--#9:Fixed Function declaration and condition evaluation.
+#MPDADDITION12-06-25--#1:Fixed border= tag in prt statement to support custom border symbols (eg.: [*], *, !, @, ##, %$#@!, etc)
+#MDP13-06-25--#2:Complete Evaluation Test Success, Fixed Multiple control flow bugs,fixed flush statement to work in idle mode.
+#MDP14-06-25--#3:Fixed while statement to work inside if statements
+#MDPADDITION14-06-25#4:Added ##REPL to check whether the interpreter is in repl mode or not.
 
 
 
