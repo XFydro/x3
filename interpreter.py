@@ -172,7 +172,6 @@ try:
                     "-bold/cyan": "\033[1;96m",   # Bold bright cyan
                     "-bold/white": "\033[1;97m",  # Bold bright white
                 }
-
             self.additional_parameters = {
                 "##random": lambda: random.random(),
                 "##randint": lambda: random.randint(0, 100),
@@ -180,9 +179,9 @@ try:
                 "##timestamp": lambda: int(time.time()),
                 "##REPL": lambda: self.REPL,  # Returns the current exec state
                 }
-
         def info(self):
-            print(version)
+            print(f'Running on version:{version},MintEclipse 0.1')
+            print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
         def flush(self):
             del self.variables
             del self.functions
@@ -1705,8 +1704,6 @@ try:
                     operand2 = float(operand2) if '.' in str(operand2) else int(operand2)
                 except ValueError:
                     raise TypeError("Operands must be numeric.")
-
-                # -- Supported operations --
                 operations = {
                     "add": lambda x, y: x + y,
                     "sub": lambda x, y: x - y,
@@ -1832,7 +1829,7 @@ try:
             import argparse
             import time
             import re
-            import os as os
+            import os
             import shlex 
             import json
             import difflib
@@ -1888,7 +1885,8 @@ try:
                 except Exception as exc:
                     print(f"[CRITICAL ERROR] Could not load {args.file} due to reason:{exc}")            
             else:
-                REPL=1 #for repl and ide mode.
+                global REPL
+                REPL = 1
                 interpreter.REPL = 1
                 while True:
                     try:
