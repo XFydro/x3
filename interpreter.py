@@ -1,19 +1,9 @@
+
 #this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
 #MINTMintEclipse 0.1
-import argparse
-import time
-import re
-import os
-import shlex 
-import json
-import difflib
-import subprocess
-import importlib
-import random
-import math
-import numpy as np
-import struct
 from difflib import SequenceMatcher
+import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, numpy as np, struct
+#import cProfile
 REPL=0 #on default script mode.
 version=3.9 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
@@ -45,9 +35,7 @@ def install_package(package, alias=None): #package installation using subprocess
         globals()[package] = module  # Standard import
 
     return module  
-#install colorama and requests at the start. (too lazy to use this same command over and over again accross funcs :3)
-install_package("requests")
-
+install_package("psutil") #import psutil for memory usage and other system info.
 """
 Requirements:
 __Python3.6+
@@ -87,7 +75,11 @@ try:
             self.vardebug=False
             #---
             #Rules Init--
+
             self.fastmathrule=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
+            self.semo=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
+
+            #---
             self.command_mapping = { 
                 'terminal': self.cmd_open_terminal,
                 'goto': self.cmd_goto,
@@ -131,6 +123,7 @@ try:
                 'flush': self.flush,
                 'reinit': self.cmd_reinit, 
                 '--info': self.info,
+                'setclientrule': self.setclientrule,
             }
             self.exceptional_commands={
                 "//",
@@ -177,11 +170,60 @@ try:
                 "##randint": lambda: random.randint(0, 100),
                 "##timeseconds": lambda: time.time(),
                 "##timestamp": lambda: int(time.time()),
-                "##REPL": lambda: self.REPL,  # Returns the current exec state
-                }
+                "##REPL": lambda: self.REPL,  # Current interpreter state
+                "##date": lambda: datetime.datetime.now().strftime("%Y-%m-%d"),
+                "##time": lambda: datetime.datetime.now().strftime("%H:%M:%S"),
+                "##datetime": lambda: datetime.datetime.now().isoformat(),
+                "##uuid": lambda: str(uuid.uuid4()),
+                "##user": lambda: getpass.getuser(),
+                "##hostname": lambda: socket.gethostname(),
+                "##platform": lambda: platform.system(),
+                "##osversion": lambda: platform.version(),
+                "##cwd": lambda: os.getcwd(),
+                "##randbool": lambda: random.choice([True, False]),
+                "##msec": lambda: int(time.time() * 1000),
+                "##env": lambda key="": os.environ.get(key, "") if key else dict(os.environ),  # Use like `##env:PATH`
+                "##upper": lambda txt="": txt.upper(),
+                "##lower": lambda txt="": txt.lower(),
+                "##reverse": lambda txt="": txt[::-1],
+                "##equals": lambda a="", b="": str(a) == str(b),
+                "##notequals": lambda a="", b="": str(a) != str(b),
+                "##greater": lambda a="", b="": float(a) > float(b),
+                "##less": lambda a="", b="": float(a) < float(b),
+
+                "##hash:md5": lambda txt="": hashlib.md5(txt.encode()).hexdigest() if 'hashlib' in globals() else "N/A",
+                "##hash:sha1": lambda txt="": hashlib.sha1(txt.encode()).hexdigest() if 'hashlib' in globals() else "N/A",
+                "##hash:sha256": lambda txt="": hashlib.sha256(txt.encode()).hexdigest() if 'hashlib' in globals() else "N/A",
+
+                "##ping": lambda host="8.8.8.8": os.system(f"ping -n 1 {host}" if os.name == "nt" else f"ping -c 1 {host}") == 0,
+
+                "##rgb": lambda hex="#000000": tuple(int(hex.strip("#")[i:i+2], 16) for i in (0, 2, 4)),
+
+                "##readfile": lambda path="": open(path, "r").read() if os.path.exists(path) else "[File not found]",
+
+                "##interpreter:vars": lambda: list(self.variables.keys()),
+                "##interpreter:funcs": lambda: list(getattr(self, "functions", {}).keys()),
+                "##interpreter:memory": lambda: f"{round(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024, 2)} MB" if 'psutil' in globals() else "N/A",
+            }
+
+        def setclientrule(self, args):
+            if args=="fastmath":
+                self.fastmathrule=True if self.fastmathrule == False else False
+                print(f"[DEBUG] Fastmath rule set to {self.fastmathrule}.")
+            if args=="SEMO":
+                # Script Execution Mode Only
+                self.semo = True if self.semo == False else False
+                print(f"[DEBUG] SEMO rule set to {self.semo}.")
+
+            if args=="reset":
+                # Reset all rules to default
+                self.fastmathrule = False
+                self.semo = False
+                print("[DEBUG] All client rules reset to default.")
         def info(self):
             print(f'Running on version:{version},MintEclipse 0.1')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
+
         def flush(self):
             del self.variables
             del self.functions
@@ -220,21 +262,81 @@ try:
         def comment_strip(self, s):
             return s.split('\\')[0]
 
-        def load(self, filename):
-            try:
-                interpreter = Interpreter()
-                with open(filename, 'r') as file:
-                    for line in file:
-                        command = line.strip()
-                        interpreter.handle_command(command)
-            except FileNotFoundError:
-                if self.filedebug:
-                    print(f"--ErrID53: The file '{filename}' was not found.")
-                    if self.REPL == 0: self.cmd_exit()
+        def load(self, filename: str) -> None:
+            """
+            Securely loads and executes commands from a given file using the interpreter.
+            Provides layered debug output and tracks line-by-line success/failure statistics >:3
+            muhahahahaahahahahaha
+            """
 
-            except Exception as e:
+            success_count = 0
+            fail_count = 0
+
+            try:
+                # Validate filename type
+                if not isinstance(filename, str):
+                    raise TypeError(f"Expected filename as str, got {type(filename).__name__}.")
+
+                # Check file existence and permissions
+                if not os.path.isfile(filename):
+                    raise FileNotFoundError(f"File '{filename}' does not exist.")
+                if not os.access(filename, os.R_OK):
+                    raise PermissionError(f"No read permission for file '{filename}'.")
+
+                # Try to create the interpreter instance
+                try:
+                    interpreter = Interpreter()
+                except Exception as interp_init_err:
+                    raise RuntimeError(f"Interpreter init failed: {interp_init_err}")
+
                 if self.filedebug:
-                    print(f"[DEBUG] An error occurred while executing commands from '{filename}': {e}")  
+                    print(f"[DEBUG-{self.filedebug}] Opening file: {filename}")
+
+                # Read and process commands
+                with open(filename, 'r', encoding='utf-8', errors='replace') as file:
+                    for lineno, line in enumerate(file, 1):
+                        command = line.strip()
+                        if not command or command.startswith("#"):
+                            continue
+
+                        try:
+                            interpreter.handle_command(command)
+                            success_count += 1
+
+                            if self.filedebug == 2:
+                                print(f"[Line {lineno}]  Executed: {command}")
+
+                        except Exception as cmd_err:
+                            fail_count += 1
+
+                            if self.filedebug == 1:
+                                print(f"[Line {lineno}]  Failed.")
+                            elif self.filedebug >= 2:
+                                print(f"[Line {lineno}]  Command: '{command}'\n   └─ Reason: {cmd_err}")
+                                if self.filedebug >= 3:
+                                    print("   └─ Traceback:")
+                                    traceback.print_exc()
+                            continue
+
+            except (FileNotFoundError, PermissionError, TypeError, RuntimeError) as critical:
+                if self.filedebug:
+                    print(f"[LOAD-CRITICAL]  {critical}")
+                if self.REPL == 0:
+                    self.cmd_exit()
+
+            except Exception as unknown:
+                if self.filedebug:
+                    print(f"[LOAD-UNKNOWN]  Unexpected error:\n{unknown}")
+                    if self.filedebug >= 3:
+                        traceback.print_exc()
+                if self.REPL == 0:
+                    self.cmd_exit()
+
+            finally:
+                if self.filedebug:
+                    print(f"[DEBUG-{self.filedebug}] Load complete.")
+                    print(f" ├─ Successes: {success_count}")
+                    print(f" └─ Failures: {fail_count}")
 
         def log(self, message):
             if self.debug:
@@ -364,7 +466,7 @@ try:
                             print(f"[DEBUG] Repeating WHILE: jumping to line {block['start_line']}")
                         self.control_stack.append(block)
                         self.current_line = block["start_line"] - 1
-                        return  # Don't continue past this point
+                        return  # DONTT continue past this point
                     else:
                         if debug:
                             print(f"[DEBUG] Exiting WHILE loop")
@@ -382,7 +484,6 @@ try:
                     self.cmd_exit()
                 return
 
-            # Final: restore execution state from enclosing block (if any)
             self.execution_state = (
                 self.control_stack[-1]["executed"]
                 if self.control_stack else True
@@ -391,6 +492,7 @@ try:
 
         def find_while_start(self, condition):
             """Finds the start of the while loop in the script."""
+            '''i feel something is wrong with this but i dont know what'''
             for i in range(self.current_line, -1, -1):
                 line = self.lines[i].strip()
                 if line.startswith("while ") and condition in line:
@@ -452,12 +554,11 @@ try:
             def get_value(token):
                 # Resolve a token to its actual value.
                 token = token.strip()
-                # If quoted string, strip quotes
+                # quoted string -> strip quotes
                 if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
                     val = token[1:-1]
                     debug(f"Resolved literal string {token} -> {val!r}")
                     return val
-                # If variable name in self.variables, return its first element
                 if token in self.variables:
                     lst = self.variables[token]
                     if not lst:
@@ -615,7 +716,6 @@ try:
                         level += 1
                     elif ch == ")" and in_quotes is None:
                         level -= 1
-                    # Split on top-level &
                     if ch == "&" and level == 0 and in_quotes is None:
                         factors.append(buf.strip())
                         buf = ""
@@ -668,7 +768,6 @@ try:
                     break  # short-circuit OR
             debug(f"Final result of '{condition_str}' -> {final_result}")
             return final_result
-
         def cmd_prt(self, raw_args):
             """
             Enhanced print command with styled, formatted, and interactive output.
@@ -676,9 +775,7 @@ try:
             if not raw_args:
                 print("--ErrID37: No arguments provided for prt command.")
                 if self.REPL == 0: self.cmd_exit()
-
                 return
-
             # Default settings
             settings = {
                 "color_code": "",
@@ -903,15 +1000,20 @@ try:
 
 
         def store_variable(self, var_name, value, data_type):
-            if not value=="output":
+            if data_type == "list" and not isinstance(value, list):
+                value = [value]  # wrap single value into list
+
+            if value != "output":
                 self.variables[var_name] = (value, data_type)
             else:
-                self.variables[var_name] = (self.output, data_type)    
-            self.cmd_log(f"Stored variable '{var_name}' with value '{value}' and type {data_type}")
-            
+                self.variables[var_name] = (self.output, data_type)
+
         def handle_command(self, command):
             """Processes commands, handles function definitions, and executes appropriately."""
             # Early return for empty lines or comments
+            if self.REPL == 1 and self.semo == True and not(command=="setclientrule SEMO"):
+                print("--ErrID72: Script Execution Mode Only (SEMO) is enabled. Cannot run commands.")
+                self.cmd_exit()
             if not command or command.startswith(("//", "\\")):
                 return
 
@@ -999,7 +1101,7 @@ try:
             - dev None         → Disables all debugging options
             """
             
-            # 🚀 Debugging options dictionary
+            #  Debugging options dictionary
             debug_options = {
                 "controlflow": "ctrflwdebug",
                 "print": "prtdebug",
@@ -1016,10 +1118,9 @@ try:
                 print("[SELF-DEBUG] Please provide a debug option (e.g., 'dev controlflow').")
                 return
 
-            args = raw_args.lower().split()  # Convert input to lowercase for case-insensitive matching
+            args = raw_args.lower().split()  # Convert input to lowercase for case-insensitive matching 
 
             if "all" in args or "none" in args:
-                # ✅ Toggle all debugging options
                 enable = "all" in args
                 self.debug = enable
                 for attr in debug_options.values():
@@ -1027,7 +1128,6 @@ try:
                 print(f"[SELF-DEBUG] {'Enabled' if enable else 'Disabled'} all debugging options.")
                 return
 
-            # ✅ Enable specific debug options
             enabled_any = False
             for dbg_option in args:
                 if dbg_option in debug_options:
@@ -1085,10 +1185,6 @@ try:
             # Join all arguments into a single string
             message = " ".join(map(str, args))
 
-            # Optionally, write logs to a file if in debug mode
-            with open("x3_debug.log", "a") as log_file:
-                log_file.write(f"{message}\n")
-
             # Print to the console in debug mode
             if self.debug:
                 print(f"[DEBUG] {message}")
@@ -1124,11 +1220,39 @@ try:
             similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
             return float(similarity)
         def replace_additional_parameters(self, input_str):
+            # Handle colon-style functions like ##upper: or ##reverse:
+            pattern = re.compile(r"(##\w+):(\$?\w+)")
+
+            matches = pattern.findall(input_str)
+            for full_key, arg in matches:
+                func = self.additional_parameters.get(full_key)
+                if func:
+                    # Resolve variable if it's $something
+                    if arg.startswith("$"):
+                        varname = arg[1:]
+                        if varname in self.variables:
+                            arg_value = str(self.variables[varname][0])
+                        else:
+                            arg_value = "<UNDEFINED>"
+                    else:
+                        arg_value = arg
+
+                    try:
+                        result = str(func(arg_value))
+                        input_str = input_str.replace(f"{full_key}:{arg}", result)
+                    except Exception as e:
+                        input_str = input_str.replace(f"{full_key}:{arg}", f"<ERROR:{e}>")
+
+            # Now do standard ##key replacements (no colon args)
             for key, func in self.additional_parameters.items():
-                if key in input_str:
-                    result = str(func())
-                    input_str = input_str.replace(key, result)
+                if key in input_str and not f"{key}:" in input_str:
+                    try:
+                        input_str = input_str.replace(key, str(func()))
+                    except Exception as e:
+                        input_str = input_str.replace(key, f"<ERROR:{e}>")
+
             return input_str
+
 
         def cmd_reg(self, raw_args):
             """
@@ -1174,7 +1298,7 @@ try:
                 if isinstance(var_value, (int, float)) or var_value.replace(".", "", 1).isdigit():
                     var_value = float(var_value) if "." in var_value else int(var_value)
                 else:
-                    # 🚀 Evaluate only if it's an actual math expression
+                    #  Evaluate only if it's an actual math expression
                     if isinstance(var_value, (str, bool)) and math_mode:
                         var_value = var_value
                     else:
@@ -1189,11 +1313,11 @@ try:
                 return
             except Exception as e:
                 if self.mathdebug:
-                    print(f"[CRITICAL ERROR] Math evaluation failed: {e}")
+                    print(f"[CRITICAL ERROR] Variable evaluation failed: {e}")
                 if self.REPL == 0: self.cmd_exit()
                 return
 
-            # 🚀 Improved type handling with strict checks
+            #  Improved type handling with strict checks ##23.5.25##
             try:
                 # Ensure correct type handling
                 if isinstance(var_value, int):
@@ -1408,13 +1532,11 @@ try:
                 
                 # Store or update the variable
                 self.store_variable(var_name, value, var_type)
-                self.cmd_log(f"Stored input: {var_name} = {value} ({var_type})")
                 
             except Exception as e:
                 error_message = f"Error in inp command: {str(e)}"
                 if self.control_stack and self.control_stack[-1]["type"] == "try":
                     self.control_stack[-1]["error"] = error_message
-                    self.cmd_log(f"[ERROR] {error_message}")
                 else:
                     print(f"{error_message}")
                     if self.REPL == 0: 
@@ -1485,7 +1607,7 @@ try:
                 print(f"[DEBUG] Function '{self.current_function_name}' definition completed.")
 
             self.in_function_definition = False
-            self.current_function_name = None  # ✅ DO NOT DELETE!
+            self.current_function_name = None 
         def cmd_call(self, args):
             function_name = args.strip()
             if not function_name:
@@ -1609,50 +1731,15 @@ try:
             self.perform_arithmetic_operation(args, operation="pow")
         def cmd_inv_sqrt(self, args):
             self.perform_arithmetic_operation(args, operation="inv_sqrt")
-        def cmd_fastmath(self, args):
-            """Hyper-optimized math evaluation with multiple backends:
-            fastmath var = <expression> [method=(quake|numpy|math)]
-            """
-            try:
-                COMMENT_PATTERN = re.compile(r'//.*')
-                METHOD_PATTERN = re.compile(r'\bmethod=(numpy|math)\b')
-                VAR_PATTERN = re.compile(r'\$([a-zA-Z_]\w*)')
-                SQRT_PATTERN = re.compile(r'sqrt\(([^)]+)\)')
-                INV_SQRT_PATTERN = re.compile(r'\*\*-0\.5|\*\*\(-0\.5\)|\/?sqrt\(')
 
-                args = COMMENT_PATTERN.sub('', args).strip()
 
-                method_match = METHOD_PATTERN.search(args)
-                method = method_match.group(1) if method_match else 'math'
-                args = METHOD_PATTERN.sub('', args).strip()
-
-                parts = args.split('=', 1)
-                if len(parts) != 2:
-                    raise ValueError("Syntax: fastmath <var> = <expression> [method=numpy|math]")
-                var_name, expr = map(str.strip, parts)
-
-                var_cache = {k: v[0] for k, v in self.variables.items()}
-                safe_globals = {'__builtins__': None}
-
-                def safe_replace(match):
-                    var = match.group(1)
-                    return str(var_cache.get(f'${var}', match.group(0)))
-                expr = VAR_PATTERN.sub(safe_replace, expr)
-
-                if method == 'numpy':
-                    safe_globals['np'] = np
-                elif method == 'math':
-                    safe_globals['math'] = math
-                
-                result = eval(expr, safe_globals, var_cache)
-
-                result_type = 'float' if isinstance(result, (float, np.floating)) else 'int'
-                self.variables[var_name] = [float(result) if result_type == 'float' else int(result), result_type]
-
-            except Exception as e:
-                print(f"FastMath Error: {e}")
-                if not getattr(self, 'REPL', 0):  # Safer REPL check
-                    self.cmd_exit()
+        def cmd_fastmath(self,a):x,e=a.split('=',1);r=eval(e,{'__builtins__':None,'math':math},{k:self.variables[k][0]for k in self.variables});self.variables[x.strip()]=[r,'float'if type(r) is float else'int']
+        """
+        oh fucking god this is insane on so many levels like just look at this
+        this makes me wonna vomit.
+        Absolutely disgusting piece of code just for the sake of faster math operations.
+        Syntax: fastmath <var_name> = <expression>
+        """
 
         def perform_arithmetic_operation(self, args, operation):
             """
@@ -1718,7 +1805,6 @@ try:
 
                 if operation not in operations:
                     raise ValueError(f"Unknown operation '{operation}'.")
-
                 result = operations[operation](operand1, operand2)
 
                 result_type = "int" if isinstance(result, int) or result == int(result) else "float"
@@ -1740,8 +1826,8 @@ try:
 
         def get_variable_value(self, var_name):
             if var_name in self.variables:
-                return self.variables[var_name][0]  # 🚀 Return the stored value
-            return var_name  # 🚀 Return the variable name itself if undefined
+                return self.variables[var_name][0]  #  Return the stored value
+            return var_name  #  Return the variable name itself if undefined
 
         def cmd_open_terminal(self, args):
             install_package('pygetwindow', "gw") #Import pygetwindow as "gw" lol.
@@ -1762,13 +1848,13 @@ try:
 
             # Check if 'load' is given BEFORE checking colors
             load_mode = False
-            if "load" in args:
-                args.remove("load")  # Remove it from the list
+            if "load=true" in args:
+                args.remove("load=true")  # Remove it from the list
                 load_mode = True
 
             # Check if a valid color name is given (after "load" is handled)
             color_name = None
-            if len(args) > 5:  # Now, check if a 6th argument is present
+            if len(args) > 5:  
                 last_arg = args[-1]
                 valid_colors = {
                     "Black": "0", "Blue": "1", "Green": "2", "Aqua": "3",
@@ -1899,6 +1985,7 @@ try:
             print("\nExiting.")
 
     if __name__ == "__main__":
+        #cProfile.run("main()")
         main()
 except (KeyboardInterrupt, EOFError):
     print("\n")
