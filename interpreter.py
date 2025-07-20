@@ -51,6 +51,7 @@ try:
     
     class Interpreter:
         def __init__(self, debug=False): 
+            self.local_variables = {}
             self.REPL=REPL
             self.current_line=0
             self.variables = {} #variable dictionary
@@ -63,6 +64,8 @@ try:
             self.output = None #output for functions like fetch, i will think of improving this.
             self.log_messages = [] #old log messages record, still works but deprecated
             self.execution_state = {} #thought of removing this but it is still used in some control flow magic so ye.
+            self.return_flag = False
+            self.return_value = None
             #Debug Init---
             self.ctrflwdebug = False
             self.prtdebug = False
@@ -111,6 +114,7 @@ try:
                 'while': self.cmd_while,
                 'def': self.cmd_def,
                 'call': self.cmd_call,
+                'return': self.cmd_return,
                 'inc': self.cmd_inc,
                 'dec': self.cmd_dec,
                 'wait': self.cmd_wait,
@@ -374,6 +378,14 @@ try:
             if not result:
                 if self.ctrflwdebug:
                     print("[DEBUG] Skipping subsequent commands inside this IF block.")
+        def evaluate_math_expression(self, expression):
+            # Replace variables in the expression
+            expression = self.replace_variables(expression)
+            try:
+                return eval(expression, {"__builtins__": {}}, {})
+            except Exception as e:
+                print(f"[MATH ERROR] {e}")
+                return "<MATH_ERROR>"
 
         def cmd_else(self):
             """
@@ -519,21 +531,43 @@ try:
             return True 
 
         def replace_variables(self, text):
-            """
-            Replace all $var references in the input string with their actual values from self.variables.
-            Only replaces $ followed by valid variable names.
-            """
+            # Match and replace ##function:(args)
+            def func_replacer(match):
+                full_expr = match.group(1)
+                if ':' in full_expr and full_expr.endswith(')'):
+                    func_name, arg_str = full_expr.split(':', 1)
+                    arg_str = arg_str.strip("()")
+
+                    try:
+                        prev_output = self.output
+
+                        result = self.cmd_call(f"{func_name} {arg_str}")
+                        self.output = prev_output  
+
+                        return str(result) if result is not None else ""
+                    except Exception as e:
+                        return f"<ERROR:{e}>"
+                return f"<INVALID:{full_expr}>"
+
+            def inline_func_replacer(match):
+                raw = match.group(1)
+                func_name, args = raw.split(":", 1)
+                args = args.strip("()")  # REMOVE THE PARENTHESES FROM ARGUMENTS AAAAAAAAA
+                result = self.cmd_call(f"{func_name} {args}")
+                return str(result) if result is not None else ""
+
+            text = re.sub(r"##([\w]+:\([^\)]*\))", inline_func_replacer, text)
 
             def replacer(match):
                 var_name = match.group(1)
-                if var_name in self.variables:
-                    val = self.variables[var_name][0]  # Assume [value]
-                    return str(val)
+                if var_name in self.local_variables:
+                    return str(self.local_variables[var_name][0])
+                elif var_name in self.variables:
+                    return str(self.variables[var_name][0])
                 else:
-                    return f"<UNDEFINED:{var_name}>"  # Optional: or leave as is / raise error
-
-            # Match $var or $var123
+                    return f"<UNDEFINED:{var_name}>"
             return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", replacer, text)
+
         def eval_condition(self, condition_str):
             """
             Evaluate a custom IF condition string. Supports:
@@ -815,7 +849,7 @@ try:
                     settings["log_message"] = True
 
                 # Variable interpolation
-                args = re.sub(r"\$([a-zA-Z_]\w*)", lambda m: str(self.variables.get(m.group(1), ["<" + m.group(1) + ">"])[0]), args)
+                args = self.replace_variables(args)
 
                 # Apply case transformations
                 if settings["case"] == "upper":
@@ -1004,15 +1038,14 @@ try:
                 self.output = None
                 self.cmd_exit()
 
-
-        def store_variable(self, var_name, value, data_type):
+        def store_variable(self, var_name, value, data_type, local=False):
+            target = self.local_variables if local else self.variables
             if data_type == "list" and not isinstance(value, list):
-                value = [value]  # wrap single value into list
-
+                value = [value]
             if value != "output":
-                self.variables[var_name] = (value, data_type)
+                target[var_name] = (value, data_type)
             else:
-                self.variables[var_name] = (self.output, data_type)
+                target[var_name] = (self.output, data_type)
 
         def handle_command(self, command):
             """Processes commands, handles function definitions, and executes appropriately."""
@@ -1025,15 +1058,16 @@ try:
 
             if getattr(self, "in_function_definition", False):
                 if command.strip().lower() == "fncend":
-                    if self.cmdhandlingdebug:# Allow 'fncend' to break out of function definition mode (if applicable or else just store the command)
-                        print(f"[DEBUG] Executing 'fncend' to end function '{self.current_function_name}'")
+                    if self.cmdhandlingdebug:
+                        print(f"[DEBUG] Ending function '{self.current_function_name}'")
                     self.command_mapping["fncend"]()
                     return
                 else:
-                    self.functions[self.current_function_name].append(command)
+                    self.functions[self.current_function_name]["body"].append(command)
                     if self.cmdhandlingdebug:
-                        print(f"[DEBUG] Command '{command}' saved in function '{self.current_function_name}'")
+                        print(f"[DEBUG] Added line to function '{self.current_function_name}': {command}")
                     return
+
 
 
 
@@ -1213,7 +1247,7 @@ try:
                 value = self.variables[var_name][0]
                 if isinstance(value, str):
                     length = len(value)
-                    self.store_variable(result_var, length, "int")
+                    self.store_variable(result_var, length, "int", local=self.in_function_definition)
                     if self.cmdhandlingdebug:
                         print(f"[DEBUG]Length of '{var_name}' stored in '{result_var}': {length}")
                 else:
@@ -1286,16 +1320,16 @@ try:
 
         def cmd_reg(self, raw_args):
             """
-            Register a variable, allowing math expressions,
-            Supports operations: +, -, *, /, (), and variables.
-
-            Example:
-            reg int var1 5
-            reg int var2 (var1 * 10) / 2
+            Registers a variable. Supports math expressions, string values, and variable substitution.
+            Syntax:
+                reg int varname 5
+                reg int varname $x * 2
+                reg int varname $x * $y
+                reg int varname "$string"
             """
             raw_args = self.replace_additional_parameters(raw_args)
+            parts = raw_args.strip().split()
 
-            parts = raw_args.split()
             if len(parts) < 3:
                 print("--ErrID80: Invalid variable registration format.")
                 if self.REPL == 0: self.cmd_exit()
@@ -1303,67 +1337,61 @@ try:
 
             var_type = parts[0]   # int, float, str, etc.
             var_name = parts[1]   # Variable name
-            var_value = " ".join(parts[2:])  # Everything after var name
+            var_value_raw = " ".join(parts[2:])  # The expression or literal value
+
             if self.vardebug:
-                print(f"[DEBUG] Parsed Variable '{var_name}' of type '{var_type}' with value '{var_value}'")
-            # Check if eval=True is present
-            math_mode = "eval=True" in var_value
-            if math_mode:
-                var_value = var_value.replace("eval=True", "").strip().strip('"')  # Remove extra quotes
+                print(f"[DEBUG] Parsed Variable '{var_name}' of type '{var_type}' with value '{var_value_raw}'")
 
-            matches = re.findall(r'\$([a-zA-Z_]\w*)', var_value)
-            for var in matches:
-                if var in self.variables:
-                    var_data = self.variables[var][0]
-                    if isinstance(var_data, str):
-                        replacement = f'"{var_data}"'
-                    else:
-                        replacement = str(var_data)
-
-                    var_value = re.sub(rf'\${var}\b', replacement, var_value)
-                else:
-                    raise ValueError(f"Variable '${var}' not found.")
             try:
-                # Skip eval() if var_value is already numeric
-                if isinstance(var_value, (int, float)) or var_value.replace(".", "", 1).isdigit():
-                    var_value = float(var_value) if "." in var_value else int(var_value)
-                else:
-                    #  Evaluate only if it's an actual math expression
-                    if isinstance(var_value, (str, bool)) and math_mode:
-                        var_value = var_value
+                # Variable substitution
+                def var_replacer(match):
+                    var = match.group(1)
+                    val = None
+                    if var in self.local_variables:
+                        val = self.local_variables[var][0]
+                    elif var in self.variables:
+                        val = self.variables[var][0]
                     else:
-                        var_value = eval(var_value)
+                        raise ValueError(f"--ErrID38: Variable '${var}' not found.")
 
-            except ValueError as ve:
-                print(ve)
-                return
-            except SyntaxError:
-                print(f"--ErrID84: Invalid Expression: {var_value}")
-                if self.REPL == 0: self.cmd_exit()
-                return
-            except Exception as e:
+                    # For strings, add quotes
+                    return f'"{val}"' if isinstance(val, str) and not val.replace(".", "", 1).isdigit() else str(val)
+
+                var_value = re.sub(r'\$([a-zA-Z_]\w*)', var_replacer, var_value_raw)
+
                 if self.mathdebug:
-                    print(f"[CRITICAL ERROR] Variable evaluation failed: {e}")
-                if self.REPL == 0: self.cmd_exit()
-                return
+                    print(f"[DEBUG] After substitution: '{var_value}'")
 
-            #  Improved type handling with strict checks ##23.5.25##
-            try:
-                # Ensure correct type handling
-                if isinstance(var_value, int):
-                    self.variables[var_name] = [var_value]  # Store properly as an int
-                elif isinstance(var_value, float):
-                    self.variables[var_name] = [var_value]  # Store as float
+                # Evaluate math expressions for numeric types
+                if var_type in ["int", "float"]:
+                    evaluated = eval(var_value, {"__builtins__": {}}, {})
+                    if var_type == "int":
+                        final_value = int(evaluated)
+                    else:
+                        final_value = float(evaluated)
+
                 else:
-                    self.variables[var_name] = [str(var_value)]  # Default to string
+                    # For strings, remove surrounding quotes if needed
+                    if var_value.startswith('"') and var_value.endswith('"'):
+                        final_value = var_value[1:-1]
+                    else:
+                        final_value = var_value  # raw value fallback
 
-            except ValueError as e:
-                print(e)
+            except Exception as e:
+                print(f"--ErrID84: Failed to evaluate variable '{var_name}': {e}")
                 if self.REPL == 0: self.cmd_exit()
                 return
+
+            # Store the value
+            if self.ctrflwdebug:
+                print(f"[DEBUG] Storing variable '{var_name}' = {final_value} (Type: {type(final_value).__name__})")
+
+            self.store_variable(var_name, final_value, var_type, local=self.in_function_definition)
+
+
 
             if self.vardebug:
-                print(f"[DEBUG] Registered variable '{var_name}' = {self.variables[var_name][0]} (Type: {var_type})")
+                print(f"[DEBUG] Registered variable '{var_name}' = {final_value} (Type: {var_type})")
 
         def cmd_delete_file(self, args):
             """
@@ -1561,7 +1589,8 @@ try:
                     var_type = "str"
                 
                 # Store or update the variable
-                self.store_variable(var_name, value, var_type)
+                self.store_variable(var_name, value, var_type, local=self.in_function_definition)
+
                 
             except Exception as e:
                 error_message = f"Error in inp command: {str(e)}"
@@ -1595,33 +1624,63 @@ try:
             if self.debug:
                 print(f"[DEBUG] {message}")
                 self.debuglog.append(f"[DEBUG] {message}")
+        def cmd_return(self, args):
+            """
+            Stops execution of the current function and returns a value.
+            Syntax:
+                return value
+            """
+            if self.ctrflwdebug:
+                print(f"[DEBUG] Return triggered with value: {args}")
+            
+            self.return_flag = True
+            self.return_value = self.replace_variables(args)
+
         def cmd_def(self, args):
             """
-            Starts the definition of a new function. Commands will be stored until 'fncend' is encountered.
-            Syntax: def function_name
+            Starts the definition of a new function with optional parameters.
+            Syntax:
+                def function_name [param1 param2 param3...]
+            Example:
+                def greet name
+                prt "Hello, $name!"
+                fncend
             """
             try:
                 tokens = args.strip().split()
-                if len(tokens) != 1:
-                    print("--ErrID3: Incorrect number of arguments. Usage: def function_name")
+
+                # 🧱 Validate function name
+                if not tokens:
+                    print("--ErrID3: Missing function name. Usage: def function_name [params]")
                     if self.REPL == 0: self.cmd_exit()
                     return
 
                 function_name = tokens[0]
+                if not function_name.isidentifier():
+                    print(f"--ErrID4: Invalid function name '{function_name}'. Must be a valid identifier.")
+                    if self.REPL == 0: self.cmd_exit()
+                    return
+
                 if function_name in self.functions:
                     print(f"--ErrID8: Function '{function_name}' is already defined.")
                     if self.REPL == 0: self.cmd_exit()
                     return
 
-                self.functions[function_name] = []
+                # 🌟 Capture parameters
+                params = tokens[1:]  # Remaining tokens are parameters
+                if self.ctrflwdebug:
+                    print(f"[DEBUG] Defining function '{function_name}' with params: {params}")
+
+                self.functions[function_name] = {
+                    "params": params,
+                    "body": []
+                }
+
                 self.current_function_name = function_name
                 self.in_function_definition = True
 
-                if self.ctrflwdebug:
-                    print(f"[DEBUG] Starting function definition: {function_name}")
-
             except Exception as e:
-                print(f"[ERROR] cmd_def: {e}")
+                print(f"[CRITICAL ERROR] cmd_def: {e}")
                 if self.REPL == 0: self.cmd_exit()
 
         def cmd_fncend(self):
@@ -1639,23 +1698,52 @@ try:
             self.in_function_definition = False
             self.current_function_name = None 
         def cmd_call(self, args):
-            function_name = args.strip()
-            if not function_name:
+            """
+            Calls a previously defined function, passing arguments as needed.
+            Syntax:
+                call function_name [args...]
+            """
+            parts = shlex.split(args.strip())
+            if not parts:
                 print("--ErrID36: No function name specified in 'call'")
                 if self.REPL == 0: self.cmd_exit()
                 return
 
+            function_name = parts[0]
             if function_name not in self.functions:
                 print(f"--ErrID37: Function '{function_name}' not defined.")
                 if self.REPL == 0: self.cmd_exit()
                 return
 
+            fnc = self.functions[function_name]
+            fnc_params = fnc.get("params", [])
+            fnc_body = fnc.get("body", [])
+            passed_args = parts[1:]
+
+            # ⚠ Check parameter count
+            if len(passed_args) != len(fnc_params):
+                print(f"--ErrID38: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")
+                if self.REPL == 0: self.cmd_exit()
+                return
+            # Setup local variables
+            self.local_variables = {}
+            for param, value in zip(fnc_params, passed_args):
+                self.store_variable(param, value, "str", local=True)
+
+
             if self.ctrflwdebug:
-                print(f"[DEBUG] Calling function '{function_name}' with {len(self.functions[function_name])} command(s)")
+                print(f"[DEBUG] Calling function '{function_name}' with arguments: {dict(zip(fnc_params, passed_args))}")
 
-            for command in self.functions[function_name]:
+            for command in fnc_body:
                 self.handle_command(command)
-
+                if self.return_flag:
+                    break
+            # Capture return and clear local scope
+            result = self.return_value
+            self.return_flag = False
+            self.return_value = None
+            self.local_variables = {}
+            return result
         def cmd_switch(self, args):
             """Switch-case implementation."""
             if not args:
@@ -1732,10 +1820,9 @@ try:
                 print(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
                 if self.REPL == 0:
                     self.cmd_exit()
+                    
         def cmd_wait(self, args):
             """Wait for a specified number of seconds."""
-
-
             try:
                 duration = int(args)
                 self.log_debug(f"Waiting for {duration} seconds...")
@@ -1839,7 +1926,7 @@ try:
                 result = operations[operation](operand1, operand2)
 
                 result_type = "int" if isinstance(result, int) or result == int(result) else "float"
-                self.store_variable(var_name, int(result) if result_type == "int" else result, result_type)
+                self.store_variable(var_name, int(result) if result_type == "int" else result, result_type, local=self.in_function_definition)
 
                 if self.mathdebug:
                     print(f"[DEBUG] {operation.upper()}: {operand1} {operation} {operand2} = {result} (stored as {result_type} in '{var_name}')")
