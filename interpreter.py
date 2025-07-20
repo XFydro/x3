@@ -1,11 +1,10 @@
-
 #this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
-#MINTMintEclipse 0.1
+#MintEclipse 0.2
 from difflib import SequenceMatcher
-import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, numpy as np, struct
+import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, struct
 #import cProfile
 REPL=0 #on default script mode.
-version=3.9 #version (For IDE and more)
+version=3.92 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     import sys
 
@@ -36,6 +35,7 @@ def install_package(package, alias=None): #package installation using subprocess
 
     return module  
 install_package("psutil") #import psutil for memory usage and other system info.
+install_package("requests") #import requests for HTTP requests.
 """
 Requirements:
 __Python3.6+
@@ -75,10 +75,8 @@ try:
             self.vardebug=False
             #---
             #Rules Init--
-
             self.fastmathrule=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
             self.semo=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
-
             #---
             self.command_mapping = { 
                 'terminal': self.cmd_open_terminal,
@@ -170,11 +168,15 @@ try:
                 "##randint": lambda: random.randint(0, 100),
                 "##timeseconds": lambda: time.time(),
                 "##timestamp": lambda: int(time.time()),
-                "##REPL": lambda: self.REPL,  # Current interpreter state
                 "##date": lambda: datetime.datetime.now().strftime("%Y-%m-%d"),
                 "##time": lambda: datetime.datetime.now().strftime("%H:%M:%S"),
-                "##datetime": lambda: datetime.datetime.now().isoformat(),
+                "##datetime": lambda: datetime.datetime.now(),
+                "##datetime:iso": lambda: datetime.datetime.now().isoformat(),
+                "##datetime:utc": lambda: datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                
+                "##REPL": lambda: self.REPL,  # Current interpreter state
                 "##uuid": lambda: str(uuid.uuid4()),
+                "##uuid:hex": lambda: uuid.uuid4().hex,
                 "##user": lambda: getpass.getuser(),
                 "##hostname": lambda: socket.gethostname(),
                 "##platform": lambda: platform.system(),
@@ -186,24 +188,25 @@ try:
                 "##upper": lambda txt="": txt.upper(),
                 "##lower": lambda txt="": txt.lower(),
                 "##reverse": lambda txt="": txt[::-1],
-                "##equals": lambda a="", b="": str(a) == str(b),
-                "##notequals": lambda a="", b="": str(a) != str(b),
-                "##greater": lambda a="", b="": float(a) > float(b),
-                "##less": lambda a="", b="": float(a) < float(b),
-
-                "##hash:md5": lambda txt="": hashlib.md5(txt.encode()).hexdigest() if 'hashlib' in globals() else "N/A",
-                "##hash:sha1": lambda txt="": hashlib.sha1(txt.encode()).hexdigest() if 'hashlib' in globals() else "N/A",
-                "##hash:sha256": lambda txt="": hashlib.sha256(txt.encode()).hexdigest() if 'hashlib' in globals() else "N/A",
-
+                "##capitalize": lambda txt="": txt.capitalize(),
+                                
                 "##ping": lambda host="8.8.8.8": os.system(f"ping -n 1 {host}" if os.name == "nt" else f"ping -c 1 {host}") == 0,
-
+                "##fetch": lambda url="": requests.get(url).text if 'requests' in globals() else "[Requests module not available]",
+                "##fetch:json": lambda url="": requests.get(url).json() if 'requests' in globals() else "[Requests module not available]",
+                "##fetch:status": lambda url="": requests.get(url).status_code if 'requests' in globals() else "[Requests module not available]",
+                "##fetch:headers": lambda url="": requests.get(url).headers if 'requests' in globals() else "[Requests module not available]",
+                "##fetch:content": lambda url="": requests.get(url).content if 'requests' in globals() else "[Requests module not available]",
+                "##fetch:html": lambda url="": requests.get(url).text if 'requests' in globals() else "[Requests module not available]",
+                "##fetch:xml": lambda url="": requests.get(url).text if 'requests' in globals() else "[Requests module not available]",
+                
                 "##rgb": lambda hex="#000000": tuple(int(hex.strip("#")[i:i+2], 16) for i in (0, 2, 4)),
 
                 "##readfile": lambda path="": open(path, "r").read() if os.path.exists(path) else "[File not found]",
 
                 "##interpreter:vars": lambda: list(self.variables.keys()),
                 "##interpreter:funcs": lambda: list(getattr(self, "functions", {}).keys()),
-                "##interpreter:memory": lambda: f"{round(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024, 2)} MB" if 'psutil' in globals() else "N/A",
+                "##interpreter:memory": lambda: f"{round(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024, 2)} MB" if 'psutil' in globals() else "[psutil module not available]",
+                "##interpreter:platform": lambda: platform.platform(),
             }
 
         def setclientrule(self, args):
@@ -221,7 +224,7 @@ try:
                 self.semo = False
                 print("[DEBUG] All client rules reset to default.")
         def info(self):
-            print(f'Running on version:{version},MintEclipse 0.1')
+            print(f'Running on version:{version},MintEclipse 0.2')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
 
         def flush(self):
@@ -236,17 +239,17 @@ try:
             del self.log_messages
             del self.execution_state
             #Reinit the interpreter
-            self.variables = {}
-            self.functions = {}
+            self.REPL=REPL
+            self.variables = {} #variable dictionary
+            self.functions = {} #function dictionary, kinda messy
             self.current_function_name = None
-            self.in_function_definition = False  
-            self.control_stack = [] 
-            self.debug = False 
-            self.debuglog = []  
-            self.output = None 
-            self.log_messages = []
-            self.execution_state = {}
-
+            self.in_function_definition = False #flag to indicate if the code is currently in a function definition
+            self.control_stack = [] #that if else and stuff, for basic control flow monitoring
+            self.debug = False #only used as a placeholder, replaced by the new BETTER debug system
+            self.debuglog = [] #i have no idea why i made this
+            self.output = None #output for functions like fetch, i will think of improving this.
+            self.log_messages = [] #old log messages record, still works but deprecated
+            self.execution_state = {} #thought of removing this but it is still used in some control flow magic so ye.
             #Debug Init---
             self.ctrflwdebug = False
             self.prtdebug = False
@@ -259,6 +262,9 @@ try:
             self.vardebug=False
             #---
             #Rules Init--
+            self.fastmathrule=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
+            self.semo=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
+            #---
         def comment_strip(self, s):
             return s.split('\\')[0]
 
@@ -1220,39 +1226,63 @@ try:
             similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
             return float(similarity)
         def replace_additional_parameters(self, input_str):
-            # Handle colon-style functions like ##upper: or ##reverse:
-            pattern = re.compile(r"(##\w+):(\$?\w+)")
+            """
+            Replaces ##key and ##key:(arg) additional parameters safely and completely.
+            Handles:
+                - ##key
+                - ##key:with:colons
+                - ##key:(argument)
+                - ##key:with:colons:(argument)
+            """
 
-            matches = pattern.findall(input_str)
+            if not isinstance(input_str, str):
+                return input_str
+
+            #  STEP 1: Bracket-style params like ##key:(value)
+            bracket_pattern = re.compile(r"(##[a-zA-Z_]\w*(?::[a-zA-Z_]\w+)*):\(([^()]*)\)")
+            matches = bracket_pattern.findall(input_str)
+
             for full_key, arg in matches:
                 func = self.additional_parameters.get(full_key)
-                if func:
-                    # Resolve variable if it's $something
-                    if arg.startswith("$"):
-                        varname = arg[1:]
-                        if varname in self.variables:
-                            arg_value = str(self.variables[varname][0])
-                        else:
-                            arg_value = "<UNDEFINED>"
+                arg_value = arg
+
+                #  Resolve $variables
+                if arg.startswith("$"):
+                    varname = arg[1:]
+                    arg_value = str(self.variables[varname][0]) if varname in self.variables else "<UNDEFINED>"
+
+                #  Safe function call with arg
+                try:
+                    if callable(func):
+                        result = str(func(arg_value)) if arg_value.strip() else str(func())
+                        if result is None:
+                            result = f"<CRITICAL ERROR: {full_key} returned None>"
                     else:
-                        arg_value = arg
+                        result = f"<CRITICAL ERROR: {full_key} is not callable>"
+                except Exception as e:
+                    result = f"<CRITICAL ERROR: {e}>"
 
-                    try:
-                        result = str(func(arg_value))
-                        input_str = input_str.replace(f"{full_key}:{arg}", result)
-                    except Exception as e:
-                        input_str = input_str.replace(f"{full_key}:{arg}", f"<ERROR:{e}>")
+                input_str = input_str.replace(f"{full_key}:({arg})", result)
 
-            # Now do standard ##key replacements (no colon args)
-            for key, func in self.additional_parameters.items():
-                if key in input_str and not f"{key}:" in input_str:
+            #  STEP 2: Simple param replacements, including colons
+            for key in sorted(self.additional_parameters, key=len, reverse=True):
+                func = self.additional_parameters[key]
+
+                #  Skip if key already used in bracket-style
+                if re.search(rf"{re.escape(key)}:\(", input_str):
+                    continue
+
+                if key in input_str:
                     try:
-                        input_str = input_str.replace(key, str(func()))
+                        result = str(func())
+                        if result is None:
+                            result = f"<CRITICAL ERROR: {key} returned None>"
                     except Exception as e:
-                        input_str = input_str.replace(key, f"<ERROR:{e}>")
+                        result = f"<CRITICAL ERROR: {e}>"
+
+                    input_str = input_str.replace(key, result)
 
             return input_str
-
 
         def cmd_reg(self, raw_args):
             """
@@ -1669,8 +1699,9 @@ try:
 
             var_name = args[0]
             var_data = self.variables.get(var_name)
-
-            if var_data and var_data[1] == "int":
+            if self.vardebug:
+                print(f"[DEBUG] Attempting to increment variable '{var_name}' with data: {var_data}")
+            if var_data:
                 new_value = var_data[0] + 1
                 self.variables[var_name] = (new_value, "int")
                 if self.ctrflwdebug:
@@ -1735,7 +1766,7 @@ try:
 
         def cmd_fastmath(self,a):x,e=a.split('=',1);r=eval(e,{'__builtins__':None,'math':math},{k:self.variables[k][0]for k in self.variables});self.variables[x.strip()]=[r,'float'if type(r) is float else'int']
         """
-        oh fucking god this is insane on so many levels like just look at this
+        oh god this is insane on so many levels like just look at this
         this makes me wonna vomit.
         Absolutely disgusting piece of code just for the sake of faster math operations.
         Syntax: fastmath <var_name> = <expression>
@@ -1994,4 +2025,6 @@ except Exception as e:
     print(f"[CRITICAL ERROR]: {e},\nTerminating script.")
 #Official 1k lines of code!!-November/24
 #Development Phase start of Eclispe-March/25
-#Official release of Eclispe prototype 0.7.
+#Official release of Eclispe 0.9. May/25
+#Development Phase start of MintEclipse. June/25
+#Official 2k lines of code!!-July/25
