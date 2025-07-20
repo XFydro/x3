@@ -1,77 +1,57 @@
+# 🌑 MintEclipse Interpreter
 
-# X3
-
-[Website](https://img.shields.io/website?url=https%3A%2F%2Fx3documentation.neocities.org)
-[Terms & Conditions](https://x3lunadocumentation.neocities.org/terms-and-conditions)
-[Download](https://x3lunadocumentation.neocities.org/downloads)
-
-Welcome to the GitHub repository for the **X3**, for more info check [x3documentation.neocities.org](https://x3lunadocumentation.neocities.org).
+> *"An expressive, extensible, emotionally charged scripting interpreter born from chaos and creativity."*  
+> **Current Version:** `3.92` | **Project Phase:** Active development
 
 ---
 
-### 🔍 What is X3?
+## 🎮 What is MintEclipse?
 
-X3 is a high-level programming language tailored for efficient logic prototyping, streamlined management tasks, and seamless interaction with APIs. It empowers users to rapidly handle data operations, automate workflows, and integrate web-based functionalities.
+**MintEclipse** is a custom-built interpreter designed for **X3-based scripting**, infused with enhanced control flow, dynamic variables, expression parsing, function definitions, and rich debugging capabilities.  
+It’s **modular, powerful, expressive**, and still evolving with each chaotic burst of passion. :3
 
-## 🌟 Features
-
-- ⚡ Rapid Prototyping: Quickly develop and test logic for automation, workflows, and integration with minimal setup.
-- 🌐 API Integration: Simplify interaction with APIs, enabling seamless data retrieval and processing directly within X3 scripts.
-- 📂 File Management: Efficiently create, read, write, and append files with straightforward commands. 
-- 🔁 Flexible Control Flow: Write complex logic using if, else and while, with support for nested structures and robust error handling.
-- 🔧 Custom Functions: Define reusable code blocks with def and fncend for improved modularity and maintainability.
-- 🔍 Enhanced Debugging: Utilize the log and read_log commands to track execution flow and simplify troubleshooting.
-- 🕒 Precise Timing: Pause execution or schedule tasks using the wait command for time-sensitive operations.
-- 🎨 Dynamic Output: Use the prt command to print text or variables with customizable alignment, colors, and formatting options for JSON or HTML.
-- 🗂️ Cross-File Importing: Import variables and commands from other .x3 files to extend script functionality.
-- 🧹 Variable Management: Register and manipulate variables effortlessly with built-in commands like reg, supporting dynamic typing.
-- 🧪 Real-World Use Cases: Includes examples for automation, data handling, and API workflows to accelerate learning and productivity.
-- 🚦 Integrated Testing Tools: Test your X3 scripts with built-in features to ensure reliability and correctness before deployment.
-
-## 🏁 Getting Started
-
-To get started with X3, visit the documentation website: [x3documentation.neocities.org](https://x3documentation.neocities.org).
-
-### Prerequisites
-
-- Python 3.x (for running the X3 interpreter)
-- A code editor like [Visual Studio Code](https://code.visualstudio.com) (recommended)
-- Basic knowledge of programming concepts is helpful but not mandatory
-
-### Installation
-
-To use the X3 interpreter locally, follow these steps:
-(x.x represents different interpreter versions)
-1. **Clone the Repository**:
-
-    ```sh
-    git clone https://github.com/XFydro/x3documentation.git
-    ```
-
-2. **Navigate to the Directory**:
-
-    ```sh
-    cd interpreter_x.x
-    ```
-
-3. **Run the X3 Interpreter**:
-
-    ```sh
-    python interpreter.py "-f" "your_script.x3"
-    ```
-
-4. **Set Up in VS Code** (optional):
-   - Install the X3 Runner extension from the vscode extension marketplace, and click the "run" button on a opened x3 file window. 
-
-### Hello World Example
-
-Below is a simple "Hello World" program written in X3:
-
-```x3
-prt "hello world"
-```
-For any questions or suggestions, feel free to reach out at - [Our contact page.](https://x3documentation.neocities.org/contactus).
+Built by **[Raven (formally known as XFydro)](https://x3documentation.neocities.org/developer)** with passion and 💖.
 
 ---
 
-Thank you for your interest in X3. We hope you find this source code helpful and encourage you to contribute!
+## 🌐 Online Editor (X3 Support!!)
+
+Wanna try writing and testing X3/MintEclipse code *instantly* in your browser?
+
+🧪 **[CSX3 Editor – Online X3 IDE](https://csx3-beta.netlify.app/)**  
+A beautiful, web-based editor created by a dear friend, supports X3!
+
+---
+
+## 🧩 Features
+
+- ✅ **Rich Command Mapping**: Over 50 built-in commands (`reg`, `prt`, `if`, `while`, `def`, `call`, `fetch`, and more!)
+- 🔣 **Custom Variable Engine** with type handling and expression evaluation
+- 📦 **Additional Parameters** like `##random`, `##timestamp`, `##fetch:url`, `##env:PATH`
+- 🔐 **Safe Execution Modes** (`SEMO(Script Execution Mode Only)`, REPL toggle, and debug toggles(dev.debug))
+- 📚 **Script Loader** with error isolation, step-by-step tracking, and layered debug levels
+- 🎨 **ANSI Color Dictionary** for styled console outputs (doesnt works as expected)
+- 💥 **Fastmath Rule** for raw math execution (`fastmath x = (a * b) + 5`)
+- 📜 **Function Blocks** (`def`, `fncend`, `call`)
+- 🧠 **Advanced Condition Evaluation** with fuzzy matching, `startswith`, `contains`, and `==ic`
+
+---
+
+## 📦 Requirements
+
+- Python **3.6+**
+- Internet access (for `fetch`, `##fetch:*`, and online packages)
+- Terminal that supports ANSI colors (optional but ✨ pretty ✨)
+- Patience... Python is slow af 🐌💤
+
+Required packages (auto-installed if not found):
+- `psutil`
+- `requests`
+
+---
+
+## 🛠️ Usage
+
+### 💻 Run a Script
+```bash
+python "minteclipse.py" "-f" "script.x3"
