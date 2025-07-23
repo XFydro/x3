@@ -27,11 +27,11 @@ A beautiful, web-based editor created by a dear friend, supports X3!
 
 - ✅ **Rich Command Mapping**: Over 50 built-in commands (`reg`, `prt`, `if`, `while`, `def`, `call`, `fetch`, and more!)
 - 🔣 **Custom Variable Engine** with type handling and expression evaluation
-- 📦 **Additional Parameters** like `##random`, `##timestamp`, `##fetch:url`, `##env:PATH`
+- 📦 **Additional Parameters** like `##random`, `##timestamp`, `##fetch:(url)`, `##env:(PATH)`
 - 🔐 **Safe Execution Modes** (`SEMO(Script Execution Mode Only)`, REPL toggle, and debug toggles(dev.debug))
 - 📚 **Script Loader** with error isolation, step-by-step tracking, and layered debug levels
 - 🎨 **ANSI Color Dictionary** for styled console outputs (doesnt works as expected)
-- 💥 **Fastmath Rule** for raw math execution (`fastmath x = (a * b) + 5`)
+- 💥 **Fastmath Rule** for raw math execution (`fastmath x = ($a * $b) + 5`)
 - 📜 **Function Blocks** (`def`, `fncend`, `call`)
 - 🧠 **Advanced Condition Evaluation** with fuzzy matching, `startswith`, `contains`, and `==ic`
 
