@@ -58,6 +58,7 @@ try:
             self.functions = {} #function dictionary, kinda messy
             self.current_function_name = None
             self.in_function_definition = False #flag to indicate if the code is currently in a function definition
+            self.local = False #local variable flag, used to indicate if a var is being declared locally or globally
             self.control_stack = [] #that if else and stuff, for basic control flow monitoring
             self.debug = False #only used as a placeholder, replaced by the new BETTER debug system
             self.debuglog = [] #i have no idea why i made this
@@ -193,8 +194,18 @@ try:
                 "##lower": lambda txt="": txt.lower(),
                 "##reverse": lambda txt="": txt[::-1],
                 "##capitalize": lambda txt="": txt.capitalize(),
-                                
-                "##ping": lambda host="8.8.8.8": os.system(f"ping -n 1 {host}" if os.name == "nt" else f"ping -c 1 {host}") == 0,
+                "##pingreport": lambda host="8.8.8.8": os.system(f"ping -n 1 {host}" if os.name == "nt" else f"ping -c 1 {host}") == 0,
+                "##ping": lambda host="8.8.8.8": (
+                    lambda output: (
+                        re.search(r'time[=<]?\s*([\d.]+)\s*ms', output).group(1)
+                        if re.search(r'time[=<]?\s*([\d.]+)\s*ms', output) else "unreachable"
+                    )
+                )(
+                    subprocess.getoutput(
+                        f"ping -n 1 {host}" if platform.system().lower() == "windows"
+                        else f"ping -c 1 {host}"
+                    )
+                ),
                 "##fetch": lambda url="": requests.get(url).text if 'requests' in globals() else "[Requests module not available]",
                 "##fetch:json": lambda url="": requests.get(url).json() if 'requests' in globals() else "[Requests module not available]",
                 "##fetch:status": lambda url="": requests.get(url).status_code if 'requests' in globals() else "[Requests module not available]",
@@ -532,6 +543,8 @@ try:
 
         def replace_variables(self, text):
             # Match and replace ##function:(args)
+            text = self.replace_additional_parameters(text)
+
             def func_replacer(match):
                 full_expr = match.group(1)
                 if ':' in full_expr and full_expr.endswith(')'):
@@ -540,8 +553,9 @@ try:
 
                     try:
                         prev_output = self.output
+                        processed_args = self.replace_additional_parameters(args)
+                        result = self.cmd_call(f"{func_name} {processed_args}")
 
-                        result = self.cmd_call(f"{func_name} {arg_str}")
                         self.output = prev_output  
 
                         return str(result) if result is not None else ""
@@ -1171,8 +1185,10 @@ try:
             enabled_any = False
             for dbg_option in args:
                 if dbg_option in debug_options:
-                    setattr(self, debug_options[dbg_option], True)
-                    print(f"[SELF-DEBUG] Enabled debugging for: {dbg_option}")
+                    current = getattr(self, debug_options[dbg_option])
+                    new_state = not current
+                    setattr(self, debug_options[dbg_option], new_state)
+                    print(f"[SELF-DEBUG] {'Enabled' if new_state else 'Disabled'} debugging for: {dbg_option}")
                     enabled_any = True
                 else:
                     print(f"[SELF-DEBUG] Incorrect usage: Unknown debug option '{dbg_option}'.")
@@ -1247,7 +1263,7 @@ try:
                 value = self.variables[var_name][0]
                 if isinstance(value, str):
                     length = len(value)
-                    self.store_variable(result_var, length, "int", local=self.in_function_definition)
+                    self.store_variable(result_var, length, "int", local=self.local)
                     if self.cmdhandlingdebug:
                         print(f"[DEBUG]Length of '{var_name}' stored in '{result_var}': {length}")
                 else:
@@ -1290,9 +1306,13 @@ try:
                     if callable(func):
                         result = str(func(arg_value)) if arg_value.strip() else str(func())
                         if result is None:
-                            result = f"<CRITICAL ERROR: {full_key} returned None>"
+                            result = "None"
                     else:
-                        result = f"<CRITICAL ERROR: {full_key} is not callable>"
+                        #print(f"--ErrID38: Function '{full_key}' not defined.")
+                        #if self.REPL == 0: self.cmd_exit()
+                        #result="None"
+                        continue
+                        
                 except Exception as e:
                     result = f"<CRITICAL ERROR: {e}>"
 
@@ -1383,10 +1403,10 @@ try:
                 return
 
             # Store the value
-            if self.ctrflwdebug:
-                print(f"[DEBUG] Storing variable '{var_name}' = {final_value} (Type: {type(final_value).__name__})")
+            if self.vardebug:
+                print(f"[DEBUG] Storing variable '{var_name}' = {final_value} (Type: {type(final_value).__name__}) in {'local' if self.in_function_definition else 'global'} scope")
 
-            self.store_variable(var_name, final_value, var_type, local=self.in_function_definition)
+            self.store_variable(var_name, final_value, var_type, local=self.local)
 
 
 
@@ -1589,7 +1609,7 @@ try:
                     var_type = "str"
                 
                 # Store or update the variable
-                self.store_variable(var_name, value, var_type, local=self.in_function_definition)
+                self.store_variable(var_name, value, var_type, local=self.local)
 
                 
             except Exception as e:
@@ -1682,7 +1702,7 @@ try:
             except Exception as e:
                 print(f"[CRITICAL ERROR] cmd_def: {e}")
                 if self.REPL == 0: self.cmd_exit()
-
+                
         def cmd_fncend(self):
             """
             Marks the end of a function definition block.
@@ -1703,6 +1723,8 @@ try:
             Syntax:
                 call function_name [args...]
             """
+            self.local=True
+            args = self.replace_additional_parameters(args)
             parts = shlex.split(args.strip())
             if not parts:
                 print("--ErrID36: No function name specified in 'call'")
@@ -1743,6 +1765,7 @@ try:
             self.return_flag = False
             self.return_value = None
             self.local_variables = {}
+            self.local=False
             return result
         def cmd_switch(self, args):
             """Switch-case implementation."""
@@ -1926,7 +1949,7 @@ try:
                 result = operations[operation](operand1, operand2)
 
                 result_type = "int" if isinstance(result, int) or result == int(result) else "float"
-                self.store_variable(var_name, int(result) if result_type == "int" else result, result_type, local=self.in_function_definition)
+                self.store_variable(var_name, int(result) if result_type == "int" else result, result_type, local=self.local)
 
                 if self.mathdebug:
                     print(f"[DEBUG] {operation.upper()}: {operand1} {operation} {operand2} = {result} (stored as {result_type} in '{var_name}')")
