@@ -1669,7 +1669,7 @@ try:
             try:
                 tokens = args.strip().split()
 
-                # 🧱 Validate function name
+                #Validate function name
                 if not tokens:
                     print("--ErrID3: Missing function name. Usage: def function_name [params]")
                     if self.REPL == 0: self.cmd_exit()
@@ -1686,7 +1686,7 @@ try:
                     if self.REPL == 0: self.cmd_exit()
                     return
 
-                # 🌟 Capture parameters
+                #Capture parameters
                 params = tokens[1:]  # Remaining tokens are parameters
                 if self.ctrflwdebug:
                     print(f"[DEBUG] Defining function '{function_name}' with params: {params}")
@@ -1742,7 +1742,7 @@ try:
             fnc_body = fnc.get("body", [])
             passed_args = parts[1:]
 
-            # ⚠ Check parameter count
+            #Check parameter count
             if len(passed_args) != len(fnc_params):
                 print(f"--ErrID38: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")
                 if self.REPL == 0: self.cmd_exit()
