@@ -1266,7 +1266,9 @@ try:
 
             if not isinstance(input_str, str):
                 return input_str
-
+            if not "##" in input_str:
+                return input_str
+            
             #  STEP 1: Bracket-style params like ##key:(value)
             bracket_pattern = re.compile(r"(##[a-zA-Z_]\w*(?::[a-zA-Z_]\w+)*):\(([^()]*)\)")
             matches = bracket_pattern.findall(input_str)
@@ -1291,9 +1293,18 @@ try:
                         #if self.REPL == 0: self.cmd_exit()
                         #result="None"
                         continue
-                        
+                except AttributeError:
+                    self.loaderrorcount+=1;print(f"--ErrID38: Function '{full_key}' not defined.")
+                    if self.REPL == 0: self.cmd_exit()
+                    result = "<UNDEFINED FUNCTION>"
+                except TypeError:
+                    self.loaderrorcount+=1;print(f"--ErrID38: Function '{full_key}' called with incorrect arguments.")
+                    if self.REPL == 0: self.cmd_exit()
+                    result = "<TYPE ERROR>"
                 except Exception as e:
-                    result = f"<CRITICAL ERROR: {e}>"
+                    if self.cmdhandlingdebug:
+                        print(f"[DEBUG] Error calling function '{full_key}': {e}")
+                    result = f"<CRITICAL ERROR>"
 
                 input_str = input_str.replace(f"{full_key}:({arg})", result)
 
