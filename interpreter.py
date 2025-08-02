@@ -2031,7 +2031,8 @@ try:
             if interpreter.REPL == 0:
                 interpreter.cmd_exit("Exiting due to critical error.")
     if __name__ == "__main__":
-        cProfile.run("main()")
+        #cProfile.run("main()")
+        main()
 except (KeyboardInterrupt, EOFError):
     print("\nExiting")
 
