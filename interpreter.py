@@ -1,10 +1,10 @@
 #this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
-#MintEclipse 0.2
+#MintEclipse 0.3
 from difflib import SequenceMatcher
 import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, struct
-#import cProfile
+import cProfile
 REPL=0 #on default script mode.
-version=3.92 #version (For IDE and more)
+VERSION=3.93 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     import sys
 
@@ -240,7 +240,7 @@ try:
                 self.semo = False
                 print("[DEBUG] All client rules reset to default.")
         def info(self):
-            print(f'Running on version:{version},MintEclipse 0.2')
+            print(f'Running on version:{VERSION},MintEclipse 0.3')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
 
         def flush(self):
@@ -505,7 +505,7 @@ try:
             for i in range(self.current_line, -1, -1):
                 line = self.lines[i].strip()
                 if line.startswith("while ") and condition in line:
-                    return i + 1  # Return line after while statement
+                    return i   # Return line after while statement
             return self.current_line
         def should_execute(self):
             """
@@ -563,164 +563,66 @@ try:
             return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", replacer, text)
 
         def eval_condition(self, condition_str):
-            """
-            Evaluate a custom IF condition string. Supports:
-            - AND (&) / OR (|) with correct precedence (AND before OR)
-            - Negation with !
-            - Comparisons: ==, !=, >, <, >=, <=
-            - Advanced: startswith, contains, ==ic (case-insensitive), |+| (fuzzy similarity)
-            - Variables from self.variables (as lists) and literals (strings/numbers)
-            - Parentheses for grouping"""
-
+            condition_str = self.replace_variables(condition_str) 
             if self.conddebug:
                 print(f"[DEBUG] Evaluating condition: {condition_str}")
 
-            condition_str = self.replace_variables(condition_str)
-
             def debug(msg):
-                """Debug helper to print messages if conddebug is enabled.
-                   This avoids cluttering output when not debugging conditions,
-                   Print debug messages only if conddebug is enabled"""
-
                 if self.conddebug:
                     print(f"[DEBUG] {msg}")
 
             def get_value(token):
-                # Resolve a token to its actual value.
                 token = token.strip()
-                # quoted string -> strip quotes
                 if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
                     val = token[1:-1]
                     debug(f"Resolved literal string {token} -> {val!r}")
                     return val
-                if token in self.variables:
-                    lst = self.variables[token]
-                    if not lst:
-                        debug(f"Warning: variable '{token}' is empty")
-                        return None
-                    val = lst[0]
-                    debug(f"Resolved variable '{token}' -> {val!r}")
-                    return val
-                # Try numeric conversion
                 try:
-                    if '.' in token:
-                        val = float(token)
-                    else:
-                        val = int(token)
+                    val = float(token) if '.' in token else int(token)
                     debug(f"Parsed numeric literal {token} -> {val!r}")
                     return val
                 except ValueError:
-                    # Not a number, return as string
                     debug(f"Interpreting token {token} as string {token!r}")
                     return token
 
             def compare_values(left, op, right):
-                # Perform comparison, with type-safety
                 debug(f"Comparing {left!r} {op} {right!r}")
-                # Handle None from missing var as False condition
                 if left is None or right is None:
-                    debug("One operand is None (undefined); comparison -> False")
                     return False
-                # Numeric vs string: attempt to coerce
-                if isinstance(left, (int, float)) and isinstance(right, str):
-                    try:
-                        right = float(right) if '.' in right else int(right)
-                        debug(f"Coerced right operand to number: {right!r}")
-                    except ValueError:
-                        debug("Type mismatch (number vs non-numeric string); comparison -> False")
-                        return False
-                if isinstance(right, (int, float)) and isinstance(left, str):
-                    try:
-                        left = float(left) if '.' in left else int(left)
-                        debug(f"Coerced left operand to number: {left!r}")
-                    except ValueError:
-                        debug("Type mismatch (string vs non-numeric number); comparison -> False")
-                        return False
-
-                # Case-insensitive equal
-                if op == "==ic":
-                    if isinstance(left, str) and isinstance(right, str):
-                        result = left.lower() == right.lower()
-                        debug(f"Case-insensitive equal? -> {result}")
-                        return result
-                    else:
-                        debug("==ic used on non-strings; comparison -> False")
-                        return False
-
-                # startswith/contains assume string left operand
-                if op == "startswith":
-                    if isinstance(left, str):
-                        result = left.startswith(str(right))
-                        debug(f"{left!r}.startswith({right!r}) -> {result}")
-                        return result
-                    else:
-                        debug("startswith used on non-string; comparison -> False")
-                        return False
-                if op == "contains":
-                    if isinstance(left, str):
-                        result = str(right) in left
-                        debug(f"{right!r} in {left!r} -> {result}")
-                        return result
-                    else:
-                        debug("contains used on non-string; comparison -> False")
-                        return False
-                if op == "|+|":
-                    if isinstance(left, str) and isinstance(right, str):
-                        # Compute similarity percentage [0-100]
-                        ratio = SequenceMatcher(None, left, right).ratio() * 100  # returns float [0,100]
-                        debug(f"Similarity of {left!r} |+| {right!r} = {ratio:.1f}%")
-                        # Interpret condition as True if similarity >= threshold?
-                        # If right is numeric (threshold), we'd have to reframe.
-                        # Here we return the ratio for caller to compare.
-                        return ratio
-                    else:
-                        debug("|+| used on non-strings; comparison -> 0%")
-                        return 0
-                # Numeric and default comparisons
                 try:
-                    if op == "==":
-                        return left == right
-                    elif op == "!=":
-                        return left != right
-                    elif op == ">":
-                        return left > right
-                    elif op == "<":
-                        return left < right
-                    elif op == ">=":
-                        return left >= right
-                    elif op == "<=":
-                        return left <= right
-                except Exception as e:
-                    debug(f"Error during comparison: {e}")
+                    if isinstance(left, (int, float)) and isinstance(right, str):
+                        right = float(right) if '.' in right else int(right)
+                    elif isinstance(right, (int, float)) and isinstance(left, str):
+                        left = float(left) if '.' in left else int(left)
+                except:
                     return False
 
-                debug(f"Unknown operator {op}; comparison -> False")
-                return False
+                if op == "==ic":
+                    return str(left).lower() == str(right).lower()
+                if op == "startswith":
+                    return str(left).startswith(str(right))
+                if op == "contains":
+                    return str(right) in str(left)
+                if op == "|+|":
+                    return SequenceMatcher(None, str(left), str(right)).ratio() * 100
+
+                return {
+                    "==": left == right,
+                    "!=": left != right,
+                    ">": left > right,
+                    "<": left < right,
+                    ">=": left >= right,
+                    "<=": left <= right
+                }.get(op, False)
 
             def eval_simple(expr):
-                """Evaluate a simple expression without top-level & or |."""
                 expr = expr.strip()
-                # Parentheses
                 if expr.startswith("(") and expr.endswith(")"):
-                    # Ensure matching parentheses
-                    paren = 0
-                    for idx, ch in enumerate(expr):
-                        if ch == "(":
-                            paren += 1
-                        elif ch == ")":
-                            paren -= 1
-                            if paren == 0 and idx < len(expr)-1:
-                                break
-                    else:
-                        # Fully parenthesized
-                        debug(f"Evaluating parenthesized expr {expr}")
-                        return self.eval_condition(expr[1:-1])
+                    return self.eval_condition(expr[1:-1])
 
-                # Split by whitespace to find tokens and operator
-                # We check multi-char ops first
                 ops = ["==ic", "|+|", ">=", "<=", "!=", "==", ">", "<", "startswith", "contains"]
                 for op in ops:
-                    parts = [p.strip() for p in expr.split(op)]
+                    parts = expr.split(op)
                     if len(parts) == 2:
                         left_val = get_value(parts[0])
                         right_val = get_value(parts[1])
@@ -728,19 +630,19 @@ try:
                         debug(f"Result of {parts[0]} {op} {parts[1]} -> {result}")
                         return result
 
-                # If no operator, interpret as boolean of the value
                 val = get_value(expr)
-                truth = bool(val)
-                debug(f"Truth value of {expr!r} -> {truth}")
-                return truth
+                result = bool(val)
+                debug(f"Truth value of {expr!r} -> {result}")
+                return result
 
             def eval_and(term):
-                """Evaluate AND-separated factors."""
                 factors = []
                 buf = ""
                 level = 0
                 in_quotes = None
-                for i, ch in enumerate(term):
+                i = 0
+                while i < len(term):
+                    ch = term[i]
                     if ch in "\"'":
                         if in_quotes is None:
                             in_quotes = ch
@@ -750,58 +652,65 @@ try:
                         level += 1
                     elif ch == ")" and in_quotes is None:
                         level -= 1
-                    if ch == "&" and level == 0 and in_quotes is None:
+                    if term[i:i+3] == "and" and level == 0 and in_quotes is None:
                         factors.append(buf.strip())
                         buf = ""
-                    else:
-                        buf += ch
+                        i += 3
+                        continue
+                    buf += ch
+                    i += 1
                 factors.append(buf.strip())
 
                 result = True
                 for factor in factors:
                     if factor.startswith("!"):
-                        debug(f"Applying negation to {factor[1:]}")
                         res = not eval_simple(factor[1:])
                     else:
                         res = eval_simple(factor)
                     result = result and bool(res)
                     debug(f"AND so far -> {result}")
                     if not result:
-                        break  # short-circuit
+                        break
                 return result
 
-            # Main OR-level split
-            terms = []
-            buf = ""
-            level = 0
-            in_quotes = None
-            for i, ch in enumerate(condition_str):
-                if ch in "\"'":
-                    if in_quotes is None:
-                        in_quotes = ch
-                    elif in_quotes == ch:
-                        in_quotes = None
-                if ch == "(" and in_quotes is None:
-                    level += 1
-                elif ch == ")" and in_quotes is None:
-                    level -= 1
-                # Split on top-level |
-                if ch == "|" and level == 0 and in_quotes is None:
-                    terms.append(buf.strip())
-                    buf = ""
-                else:
+            def split_or_blocks(condition_str):
+                terms = []
+                buf = ""
+                level = 0
+                in_quotes = None
+                i = 0
+                while i < len(condition_str):
+                    ch = condition_str[i]
+                    if ch in "\"'":
+                        if in_quotes is None:
+                            in_quotes = ch
+                        elif in_quotes == ch:
+                            in_quotes = None
+                    if ch == "(" and not in_quotes:
+                        level += 1
+                    elif ch == ")" and not in_quotes:
+                        level -= 1
+                    if condition_str[i:i+2] == "or" and level == 0 and in_quotes is None:
+                        terms.append(buf.strip())
+                        buf = ""
+                        i += 2
+                        continue
                     buf += ch
-            terms.append(buf.strip())
+                    i += 1
+                terms.append(buf.strip())
+                return terms
 
             final_result = False
-            for term in terms:
+            for term in split_or_blocks(condition_str):
                 res = eval_and(term)
                 debug(f"OR-term '{term}' -> {res}")
                 final_result = final_result or res
                 if final_result:
-                    break  # short-circuit OR
+                    break
             debug(f"Final result of '{condition_str}' -> {final_result}")
             return final_result
+
+
         def cmd_prt(self, raw_args):
             """
             Enhanced print command with styled, formatted, and interactive output.
@@ -1961,11 +1870,11 @@ try:
             return var_name  #  Return the variable name itself if undefined
 
         def cmd_open_terminal(self, args):
+            #kinda used chatgpt with this one sorri :c
             install_package('pygetwindow', "gw") #Import pygetwindow as "gw" lol.
 
             from colorama import Fore, Style #for custom font color in terminal
 
-            # Fix incorrect spelling of split()
             if "," not in args:
                 args = args.split()
             else:
@@ -2100,7 +2009,10 @@ try:
                             interpreter.current_line += 1  # Move to the next line unless `goto` changes it (i hope this doesnt breaks anything)
 
                 except Exception as exc:
-                    print(f"[CRITICAL ERROR] Could not load {args.file} due to reason:{exc}")            
+                    print(f"[CRITICAL ERROR] Could not load {args.file} due to reason:{exc}")  
+                except (KeyboardInterrupt, EOFError):
+                    print("\nExiting")
+
             else:
                 global REPL
                 REPL = 1
@@ -2114,12 +2026,14 @@ try:
                         break
         except (KeyboardInterrupt, EOFError):
             print("\nExiting.")
-
+        except Exception as e:
+            print(f"[CRITICAL ERROR] An error occurred: {e}")
+            if interpreter.REPL == 0:
+                interpreter.cmd_exit("Exiting due to critical error.")
     if __name__ == "__main__":
-        #cProfile.run("main()")
-        main()
+        cProfile.run("main()")
 except (KeyboardInterrupt, EOFError):
-    print("\n")
+    print("\nExiting")
 
 except Exception as e:
     print(f"[CRITICAL ERROR]: {e},\nTerminating script.")
