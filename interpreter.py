@@ -2,7 +2,7 @@
 #MintEclipse 0.3
 from difflib import SequenceMatcher
 import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, struct
-import cProfile
+#import cProfile
 REPL=0 #on default script mode.
 VERSION=3.93 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
@@ -50,7 +50,7 @@ __Patience because python is slow af :P
 try:
     
     class Interpreter:
-        def __init__(self, debug=False): 
+        def __init__(self): 
             self.local_variables = {}
             self.REPL:int=REPL
             self.current_line:int=-1
@@ -80,8 +80,9 @@ try:
             self.vardebug:bool=False
             #---
             #Rules Init--
-            self.fastmathrule:bool=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
+            self.fastmath:bool=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
             self.semo:bool=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
+            self.pedl:bool=False #Prevent Execution During Load, to prevent the interpreter to run commands during file loading, primarily for modules.
             #---
             self.command_mapping:dict = { 
                 'terminal': self.cmd_open_terminal,
@@ -95,9 +96,7 @@ try:
                 'create_dir': self.cmd_create_dir,
                 'delete_dir': self.cmd_delete_dir,
                 'search_file': self.cmd_search_file,
-                'sqrt': self.cmd_sqrt,
                 'sys_info': self.cmd_sys_info,
-                'set_env': self.cmd_set_env,                
                 'str_len': self.str_len,
                 'reg': self.cmd_reg,
                 'prt': self.cmd_prt,
@@ -226,19 +225,16 @@ try:
             }
 
         def setclientrule(self, args):
-            if args=="fastmath":
-                self.fastmathrule=True if self.fastmathrule == False else False
-                print(f"[DEBUG] Fastmath rule set to {self.fastmathrule}.")
-            if args=="SEMO":
-                # Script Execution Mode Only
-                self.semo = True if self.semo == False else False
-                print(f"[DEBUG] SEMO rule set to {self.semo}.")
-
-            if args=="reset":
-                # Reset all rules to default
-                self.fastmathrule = False
-                self.semo = False
-                print("[DEBUG] All client rules reset to default.")
+            newargs=args.split(" ")
+            for i in range(0,len(newargs)):
+                if getattr(self, newargs[i], None) is not None:
+                    setattr(self, newargs[i], True) if not getattr(self, newargs[i]) else setattr(self, newargs[i], False)
+                    print(f"[DEBUG] Client rule '{newargs[i]}' set to {getattr(self, newargs[i])}.") if self.cmdhandlingdebug else None
+                if newargs[i]=="reset":
+                    # Reset all rules to default
+                    self.fastmath = False
+                    self.semo = False
+                    print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
             print(f'Running on version:{VERSION},MintEclipse 0.3')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
@@ -278,7 +274,7 @@ try:
             self.vardebug=False
             #---
             #Rules Init--
-            self.fastmathrule=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
+            self.fastmath=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
             self.semo=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
             #---
         def comment_strip(self, s):
@@ -572,6 +568,11 @@ try:
                     print(f"[DEBUG] {msg}")
 
             def get_value(token):
+                token_lower = token.lower()
+                if token_lower in ("true", "false"):
+                    val = token_lower == "true"
+                    debug(f"Resolved boolean literal {token} -> {val}")
+                    return val
                 token = token.strip()
                 if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
                     val = token[1:-1]
@@ -830,27 +831,39 @@ try:
                 self.cmd_exit()
 
 
-        def cmd_create_file(self, args):
-            """
-            Creates a new file and writes content to it.
-            Syntax: create_file filename "content"
-            """
-            try:
-                parts = args.split(' ', 1)
-                if len(parts) < 2:
-                    self.loaderrorcount+=1;print("--ErrID50: Missing filename or content for create_file command.")
-                    if self.REPL == 0: self.cmd_exit()
+        def _decode_escapes(self, text):
+            """Turn escape sequences like \\n into actual newlines."""
+            return text.encode('utf-8').decode('unicode_escape')
 
-                    return
-                
-                filename = parts[0]
-                content = parts[1][1:-1] if parts[1].startswith('"') and parts[1].endswith('"') else parts[1]
-                with open(filename, 'r', encoding='utf-8', errors='replace') as f:
-                    f.write(content)
-                print(f"File '{filename}' created successfully.")
-            except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to create file. Error: {e}")
-                self.cmd_exit()
+        def cmd_create_file(self, args):
+            args = self.replace_variables(args)
+            parts = shlex.split(args)
+            if len(parts) < 2:
+                self.loaderrorcount += 1
+                print("--ErrID50: Missing filename or content for create_file command.")
+                if self.REPL == 0: self.cmd_exit()
+                return
+
+            filename, content = parts[0], parts[1]
+            content = self._decode_escapes(content)
+            with open(filename, 'w', encoding='utf-8', errors='replace') as f:
+                f.write(content)
+            print(f"File '{filename}' created successfully.")
+
+        def cmd_append_file(self, args):
+            args = self.replace_variables(args)
+            parts = shlex.split(args)
+            if len(parts) < 2:
+                self.loaderrorcount += 1
+                print("--ErrID55: Missing filename or content for append_file command.")
+                if self.REPL == 0: self.cmd_exit()
+                return
+
+            filename, content = parts[0], parts[1]
+            content = self._decode_escapes(content)
+            with open(filename, 'a', encoding='utf-8', errors='replace') as f:
+                f.write(content)
+            print(f"Content appended to file '{filename}' successfully.")
 
 
         def cmd_read_file(self, args):
@@ -886,27 +899,6 @@ try:
 
             except Exception as e:
                 print(f"[CRITICAL ERROR] Failed to read file. Error: {e}")
-                self.cmd_exit()
-        def cmd_append_file(self, args):
-            """
-            Appends content to an existing file.
-            Syntax: append_file filename "content"
-            """
-            try:
-                parts = args.split(' ', 1)
-                if len(parts) < 2:
-                    self.loaderrorcount+=1;print("--ErrID55: Missing filename or content for append_file command.")
-                    if self.REPL == 0: self.cmd_exit()
-
-                    return
-                
-                filename = parts[0]
-                content = parts[1].strip('"')  # Strip quotes from content
-                with open(filename, 'r', encoding='utf-8', errors='replace') as f:
-                    f.write(content)
-                print(f"Content appended to file '{filename}' successfully.")
-            except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to append to file. Error: {e}")
                 self.cmd_exit()
 
         def fetch_data_from_api(self, url=None, timeout=20):
@@ -952,7 +944,7 @@ try:
         def handle_command(self, command):
             """Processes commands, handles function definitions, and executes appropriately."""
             # Early return for empty lines or comments
-            if self.REPL == 1 and self.semo == True and not(command=="setclientrule SEMO"):
+            if self.REPL == 1 and self.semo == True and not(("semo" in command) and ("setclientrule" in command)):
                 self.loaderrorcount+=1;print("--ErrID72: Script Execution Mode Only (SEMO) is enabled. Cannot run commands.")
                 self.cmd_exit()
             if not command or command.startswith(("//", "\\")):
@@ -1311,104 +1303,114 @@ try:
 
             if self.vardebug:
                 print(f"[DEBUG] Registered variable '{var_name}' = {final_value} (Type: {var_type})")
-
         def cmd_delete_file(self, args):
             """
             Deletes a specified file.
-            Syntax: delete_file filename
+            Syntax: del_file filename
             """
-            filename = args.strip()
+            args = self.replace_variables(args).strip()
+            filename = args
             try:
                 os.remove(filename)
                 print(f"File '{filename}' deleted successfully.")
             except FileNotFoundError:
-                self.loaderrorcount+=1;print(f"--ErrID57: File '{filename}' not found.")
-                if self.REPL == 0: self.cmd_exit()
-
+                self.loaderrorcount += 1
+                print(f"--ErrID57: File '{filename}' not found.")
+                if self.REPL == 0:
+                    self.cmd_exit()
+            except PermissionError:
+                self.loaderrorcount += 1
+                print(f"--ErrID57P: Permission denied when deleting '{filename}'.")
+                if self.REPL == 0:
+                    self.cmd_exit()
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to delete file. Error: {e}")
+                print(f"[CRITICAL ERROR] Failed to delete file '{filename}'. Error: {e}")
                 self.cmd_exit()
+
         def cmd_create_dir(self, args):
             """
             Creates a new directory.
             Syntax: create_dir directory_name
             """
-            directory_name = args.strip()
+            args = self.replace_variables(args).strip()
+            directory_name = args
             try:
                 os.makedirs(directory_name, exist_ok=True)
                 print(f"Directory '{directory_name}' created successfully.")
+            except PermissionError:
+                self.loaderrorcount += 1
+                print(f"--ErrID58P: Permission denied when creating '{directory_name}'.")
+                if self.REPL == 0:
+                    self.cmd_exit()
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to create directory. Error: {e}")
+                print(f"[CRITICAL ERROR] Failed to create directory '{directory_name}'. Error: {e}")
                 self.cmd_exit()
+
         def cmd_delete_dir(self, args):
             """
             Deletes an empty directory.
             Syntax: delete_dir directory_name
             """
-            directory_name = args.strip()
+            args = self.replace_variables(args).strip()
+            directory_name = args
             try:
                 os.rmdir(directory_name)
                 print(f"Directory '{directory_name}' deleted successfully.")
             except FileNotFoundError:
-                self.loaderrorcount+=1;print(f"--ErrID60: Directory '{directory_name}' not found.")
-                if self.REPL == 0: self.cmd_exit()
-
+                self.loaderrorcount += 1
+                print(f"--ErrID60: Directory '{directory_name}' not found.")
+                if self.REPL == 0:
+                    self.cmd_exit()
             except OSError:
-                self.loaderrorcount+=1;print(f"--ErrID61: Directory '{directory_name}' is not empty.")
-                if self.REPL == 0: self.cmd_exit()
-
+                self.loaderrorcount += 1
+                print(f"--ErrID61: Directory '{directory_name}' is not empty.")
+                if self.REPL == 0:
+                    self.cmd_exit()
+            except PermissionError:
+                self.loaderrorcount += 1
+                print(f"--ErrID60P: Permission denied when deleting '{directory_name}'.")
+                if self.REPL == 0:
+                    self.cmd_exit()
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to delete directory. Error: {e}")
+                print(f"[CRITICAL ERROR] Failed to delete directory '{directory_name}'. Error: {e}")
                 self.cmd_exit()
+
         def cmd_search_file(self, args):
             """
             Searches for a keyword or pattern in a file.
             Syntax: search_file filename "keyword"
+            Supports: variables, spaces in keywords, UTF-8 files
             """
             try:
-                parts = args.split(' ', 1)
+                args = self.replace_variables(args)
+                parts = shlex.split(args)  # handles quotes & spaces
                 if len(parts) < 2:
-                    self.loaderrorcount+=1;print("--ErrID63: Missing filename or keyword for search_file command.")
-                    if self.REPL == 0: self.cmd_exit()
-
+                    self.loaderrorcount += 1
+                    print("--ErrID63: Missing filename or keyword for search_file command.")
+                    if self.REPL == 0:
+                        self.cmd_exit()
                     return
 
-                filename, keyword = parts[0], parts[1].strip('"')
-                with open(filename, 'r') as f:
+                filename, keyword = parts[0], parts[1]
+                with open(filename, 'r', encoding='utf-8', errors='replace') as f:
                     lines = f.readlines()
+
                 results = [line.strip() for line in lines if keyword in line]
                 if results:
-                    print(f"Found {len(results)} matching lines:")
+                    print(f"Found {len(results)} matching line(s):")
                     for line in results:
                         print(line)
                 else:
                     print(f"No matches found for '{keyword}' in '{filename}'.")
             except FileNotFoundError:
-                self.loaderrorcount+=1;print(f"--ErrID64: File '{filename}' not found.")
-                if self.REPL == 0: self.cmd_exit()
-
+                self.loaderrorcount += 1
+                print(f"--ErrID64: File '{filename}' not found.")
+                if self.REPL == 0:
+                    self.cmd_exit()
             except Exception as e:
                 print(f"[CRITICAL ERROR] Failed to search file. Error: {e}")
                 self.cmd_exit()
-        def cmd_sqrt(self, args):
-            """
-            Calculates the square root of a number.
-            Syntax: sqrt var_name
-            """
-            try:
-                var_name = args.strip()
-                if var_name in self.variables and isinstance(self.variables[var_name][0], (int, float)):
-                    value = self.variables[var_name][0]
-                    result = value ** 0.5
-                    self.store_variable(f"{var_name}_sqrt", result, "float")
-                    print(f"Square root of {value} stored in '{var_name}_sqrt'.")
-                else:
-                    self.loaderrorcount+=1;print(f"--ErrID66: Variable '{var_name}' not defined or not numeric.")
-                    if self.REPL == 0: self.cmd_exit()
 
-            except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to calculate square root. Error: {e}")
-                self.cmd_exit()
         def cmd_sys_info(self, args):
             """
             Displays system information.
@@ -1424,25 +1426,6 @@ try:
             for key, value in info.items():
                 print(f"{key}: {value}")
 
-        def cmd_set_env(self, args):
-            """
-            Sets an environment variable.
-            Syntax: set_env VAR_NAME value
-            """
-            try:
-                parts = args.split(' ', 1)
-                if len(parts) < 2:
-                    self.loaderrorcount+=1;print("--ErrID68: Missing variable name or value for set_env command.")
-                    if self.REPL == 0: self.cmd_exit()
-
-                    return
-
-                var_name, value = parts[0], parts[1]
-                os.environ[var_name] = value
-                print(f"Environment variable '{var_name}' set to '{value}'.")
-            except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to set environment variable. Error: {e}")
-                self.cmd_exit()
         def cmd_inp(self, raw_args):
             """
             inp command: Takes user input and stores it as a variable.
@@ -1994,7 +1977,7 @@ try:
             args = parser.parse_args()
             
             #uses debug mode if nessecary idk
-            interpreter = Interpreter(debug=args.debug)
+            interpreter = Interpreter()
 
             # If a file is provided, read commands from the file
             if args.file:
