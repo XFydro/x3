@@ -1,24 +1,21 @@
-CC-BY-NC-SA 4.0
-X3 License Agreement
+MIT License
 
-This software is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA) License.
+Copyright (c) 2025 XFydro/Raven
 
-License Summary:
-By using X3 IDE, you agree to the following terms:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Attribution (BY) – You must give appropriate credit, provide a link to the license, and indicate if changes were made.
-NonCommercial (NC) – You may not use this software for commercial purposes.
-ShareAlike (SA) – If you remix, transform, or build upon this software, you must distribute your contributions under the same license.
-You are free to:
-Use, copy, and modify this software for personal and non-commercial use.
-Share and distribute under the same license.
-Create derivative works under the same license conditions.
-You may NOT:
-Sell, rent, or commercialize this software.
-Distribute modified versions under a different license.
-Remove or alter any copyright, license, or attribution notices.
-Warranty Disclaimer:
-THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTIES, EXPRESS OR IMPLIED. THE AUTHORS ARE NOT LIABLE FOR ANY DAMAGES RESULTING FROM THE USE OF THIS SOFTWARE.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-For the full legal text, visit:
-https://creativecommons.org/licenses/by-nc-sa/4.0/
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
