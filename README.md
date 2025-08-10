@@ -1,6 +1,6 @@
 # 🌑 MintEclipse Interpreter
 
-> *"An expressive, extensible, emotionally charged scripting interpreter born from chaos and creativity."*  
+> *"The only bug-free zone is your imagination. Good luck."*  
 > **Current Version:** `3.9` | **Project Phase:** Active development
 
 ---
