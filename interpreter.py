@@ -48,7 +48,8 @@ __Patience because python is slow af :P
 """
 
 try:
-    
+    class Error(Exception):
+        pass
     class Interpreter:
         def __init__(self): 
             self.local_variables = {}
@@ -106,6 +107,7 @@ try:
                 'mul': self.cmd_mul,
                 'div': self.cmd_div,
                 'mod': self.cmd_mod,
+                'sqrt': self.cmd_sqrt,
                 'inp': self.cmd_inp,
                 'if': self.cmd_if,
                 'else': self.cmd_else,
@@ -206,17 +208,17 @@ try:
                         else f"ping -c 1 {host}"
                     )
                 ),
-                "##fetch": lambda url="": requests.get(url).text if 'requests' in globals() else "[Requests module not available]",
-                "##fetch:json": lambda url="": requests.get(url).json() if 'requests' in globals() else "[Requests module not available]",
-                "##fetch:status": lambda url="": requests.get(url).status_code if 'requests' in globals() else "[Requests module not available]",
-                "##fetch:headers": lambda url="": requests.get(url).headers if 'requests' in globals() else "[Requests module not available]",
-                "##fetch:content": lambda url="": requests.get(url).content if 'requests' in globals() else "[Requests module not available]",
-                "##fetch:html": lambda url="": requests.get(url).text if 'requests' in globals() else "[Requests module not available]",
-                "##fetch:xml": lambda url="": requests.get(url).text if 'requests' in globals() else "[Requests module not available]",
+                "##fetch": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
+                "##fetch:json": lambda url="": requests.get(url).json() if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
+                "##fetch:status": lambda url="": requests.get(url).status_code if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
+                "##fetch:headers": lambda url="": requests.get(url).headers if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
+                "##fetch:content": lambda url="": requests.get(url).content if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
+                "##fetch:html": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
+                "##fetch:xml": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
                 
                 "##rgb": lambda hex="#000000": tuple(int(hex.strip("#")[i:i+2], 16) for i in (0, 2, 4)),
 
-                "##readfile": lambda path="": open(path, "r").read() if os.path.exists(path) else "[File not found]",
+                "##readfile": lambda path="": open(path, "r").read() if os.path.exists(path) else "[File not found]",#returns entire file content as an single string for some reason
 
                 "##interpreter:vars": lambda: list(self.variables.keys()),
                 "##interpreter:funcs": lambda: list(getattr(self, "functions", {}).keys()),
@@ -307,11 +309,11 @@ try:
                         try:
                             interpreter.handle_command(line)
                             success_count += 1
-                            if self.filedebug == 2:
+                            if self.filedebug:
                                 print(f"[Line {lineno}] Executed: {line}")
                         except Exception:
                             self.loaderrorcount += 1
-                            if self.filedebug == 3:
+                            if self.filedebug:
                                 print(f"[Line {lineno}] Failed: {line}")
                             continue
 
@@ -324,7 +326,7 @@ try:
             except Exception as unknown:
                 if self.filedebug:
                     print(f"[LOAD-UNKNOWN] Unexpected error:\n{unknown}")
-                    if self.filedebug >= 3:
+                    if self.filedebug:
                         traceback.print_exc()
                 if self.REPL == 0:
                     self.cmd_exit()
@@ -354,8 +356,8 @@ try:
                 condition = self.replace_additional_parameters(condition)  # Replace any additional parameters like ##random, ##REPL, etc :3
                 result = self.eval_condition(condition)  # Pass the full condition as a single string
             except ValueError as e:
-                self.loaderrorcount+=1;print(f"--ErrID77: Invalid IF condition '{condition}'. Details: {e}")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID77: Invalid IF condition '{condition}'. Details: {e}")
+               
 
             # Push IF block to control stack (remains until `end`)
             self.control_stack.append({"type": "if", "executed": result, "has_else": False})
@@ -379,18 +381,18 @@ try:
             Execute an ELSE block only if the preceding IF block was false.
             """
             if not self.control_stack:
-                self.loaderrorcount+=1;print("--ErrID78: ELSE without a matching IF.")
+                self.loaderrorcount+=1;raise Error("--ErrID78: ELSE without a matching IF.")
                 if self.REPL == 0:
                     self.cmd_exit()
                 return
             last_if = self.control_stack[-1]
             if last_if["type"] != "if":
-                self.loaderrorcount+=1;print("--ErrID78: ELSE without a matching IF.")
+                self.loaderrorcount+=1;raise Error("--ErrID78: ELSE without a matching IF.")
                 if self.REPL == 0:
                     self.cmd_exit()
                 return
             if last_if.get("has_else", False):
-                self.loaderrorcount+=1;print("--ErrID79: Multiple ELSE statements for the same IF.")
+                self.loaderrorcount+=1;raise Error("--ErrID79: Multiple ELSE statements for the same IF.")
                 if self.REPL == 0:
                     self.cmd_exit()
                 return
@@ -422,7 +424,7 @@ try:
                 try:
                     executed = self.eval_condition(condition)
                 except ValueError as e:
-                    self.loaderrorcount+=1;print(f"--ErrID90: Invalid WHILE condition '{condition}'. Details: {e}")
+                    self.loaderrorcount+=1;raise Error(f"--ErrID90: Invalid WHILE condition '{condition}'. Details: {e}")
                     if self.REPL == 0:
                         self.cmd_exit()
                     return
@@ -443,7 +445,7 @@ try:
             For 'while', it only loops if it was executed and the condition is still true.
             """
             if not self.control_stack:
-                self.loaderrorcount+=1;print("--ErrID91: 'end' without matching control block.")
+                self.loaderrorcount+=1;raise Error("--ErrID91: 'end' without matching control block.")
                 if self.REPL == 0:
                     self.cmd_exit()
                 return
@@ -461,7 +463,7 @@ try:
                     try:
                         condition_still_true = self.eval_condition(block["condition"])
                     except Exception as e:
-                        self.loaderrorcount+=1;print(f"--ErrID92: WHILE condition failed at END. Details: {e}")
+                        self.loaderrorcount+=1;raise Error(f"--ErrID92: WHILE condition failed at END. Details: {e}")
                         if self.REPL == 0:
                             self.cmd_exit()
                         return
@@ -484,7 +486,7 @@ try:
                     print(f"[DEBUG] Closing {block_type.upper()} block")
 
             else:
-                self.loaderrorcount+=1;print(f"--ErrID93: Unknown control block type '{block_type}' during END.")
+                self.loaderrorcount+=1;raise Error(f"--ErrID93: Unknown control block type '{block_type}' during END.")
                 if self.REPL == 0:
                     self.cmd_exit()
                 return
@@ -516,39 +518,22 @@ try:
                     return False
 
             return True 
-
         def replace_variables(self, text):
-            # Match and replace ##function:(args)
             text = self.replace_additional_parameters(text)
 
             def func_replacer(match):
-                full_expr = match.group(1)
-                if ':' in full_expr and full_expr.endswith(')'):
-                    func_name, arg_str = full_expr.split(':', 1)
-                    arg_str = arg_str.strip("()")
-
-                    try:
-                        prev_output = self.output
-                        processed_args = self.replace_additional_parameters(args)
-                        result = self.cmd_call(f"{func_name} {processed_args}")
-
-                        self.output = prev_output  
-
-                        return str(result) if result is not None else ""
-                    except Exception as e:
-                        return f"<ERROR:{e}>"
-                return f"<INVALID:{full_expr}>"
-
-            def inline_func_replacer(match):
                 raw = match.group(1)
-                func_name, args = raw.split(":", 1)
-                args = args.strip("()")  # REMOVE THE PARENTHESES FROM ARGUMENTS AAAAAAAAA
-                result = self.cmd_call(f"{func_name} {args}")
-                return str(result) if result is not None else ""
+                if ":" in raw:
+                    func_name, arg_str = raw.split(":", 1)
+                    arg_str = arg_str.strip("()")
+                    arg_str = self.replace_additional_parameters(arg_str)
+                    result = self.cmd_call(f"{func_name} {arg_str}")
+                    return str(result) if result is not None else ""
+                return f"<INVALID:{raw}>"
 
-            text = re.sub(r"##([\w]+:\([^\)]*\))", inline_func_replacer, text)
+            text = re.sub(r"##([\w]+:\([^\)]*\))", func_replacer, text)
 
-            def replacer(match):
+            def var_replacer(match):
                 var_name = match.group(1)
                 if var_name in self.local_variables:
                     return str(self.local_variables[var_name][0])
@@ -556,7 +541,8 @@ try:
                     return str(self.variables[var_name][0])
                 else:
                     return f"<UNDEFINED:{var_name}>"
-            return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", replacer, text)
+
+            return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", var_replacer, text)
 
         def eval_condition(self, condition_str):
             condition_str = self.replace_variables(condition_str) 
@@ -717,8 +703,8 @@ try:
             Enhanced print command with styled, formatted, and interactive output.
             """
             if not raw_args:
-                self.loaderrorcount+=1;print("--ErrID37: No arguments provided for prt command.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID37: No arguments provided for prt command.")
+               
                 return
             # Default settings
             settings = {
@@ -823,17 +809,32 @@ try:
                     print("[DEBUG] Print Settings: ", settings)
 
             except ValueError as e:
-                self.loaderrorcount+=1;print(f"--ErrID38: Value error in prt command. Details: {e}")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID38: Value error in prt command. Details: {e}")
+               
 
             except Exception as e:
-                print(f"[CRITICAL ERROR] Unexpected error in prt command. Details: {e}")
+                print(f"[Unrecognised Error] Unexpected error in prt command. Details: {e}")
                 self.cmd_exit()
 
+                
+                        
+        def _int_replacer(self, args):
+            for i in range(len(args)):
+                try:
+                    expr = str(args[i]).strip()
+                    if any(op in expr for op in ['+', '-', '*', '/']):
+                        args[i] = int(eval(expr))
+                    else:
+                        args[i] = int(expr)
+                except:
+                    pass
+            return args
 
         def _decode_escapes(self, text):
             """Turn escape sequences like \\n into actual newlines."""
             return text.encode('utf-8').decode('unicode_escape')
+
+
 
         def cmd_create_file(self, args):
             args = self.replace_variables(args)
@@ -841,7 +842,7 @@ try:
             if len(parts) < 2:
                 self.loaderrorcount += 1
                 print("--ErrID50: Missing filename or content for create_file command.")
-                if self.REPL == 0: self.cmd_exit()
+               
                 return
 
             filename, content = parts[0], parts[1]
@@ -856,7 +857,7 @@ try:
             if len(parts) < 2:
                 self.loaderrorcount += 1
                 print("--ErrID55: Missing filename or content for append_file command.")
-                if self.REPL == 0: self.cmd_exit()
+               
                 return
 
             filename, content = parts[0], parts[1]
@@ -875,8 +876,8 @@ try:
 
             # Ensure the command has at least the required arguments
             if len(parts) < 2:
-                self.loaderrorcount+=1;print("--ErrID52: Missing filename or variable name for read_file command.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID52: Missing filename or variable name for read_file command.")
+               
 
                 return
 
@@ -894,20 +895,20 @@ try:
                 self.store_variable(var_name, content, "str")
                 print(f"File content stored in variable '{var_name}'.")
             except FileNotFoundError:
-                self.loaderrorcount+=1;print(f"--ErrID53: File '{filename}' not found.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID53: File '{filename}' not found.")
+               
 
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to read file. Error: {e}")
+                print(f"[Unrecognised Error] Failed to read file. Error: {e}")
                 self.cmd_exit()
 
         def fetch_data_from_api(self, url=None, timeout=20):
             install_package("requests")
             """Fetch data from a given API URL or from a variable in Var_Reg."""
             if not url:
-                self.loaderrorcount+=1;print("--ErrID11: No URL or variable provided.")
+                self.loaderrorcount+=1;raise Error("--ErrID11: No URL or variable provided.")
                 self.output = None
-                if self.REPL == 0: self.cmd_exit()
+               
 
                 return
 
@@ -915,9 +916,9 @@ try:
                 url = self.variables[url]
 
             if not isinstance(url, str) or not url.strip():
-                self.loaderrorcount+=1;print("--ErrID12: Invalid URL or variable key provided.")
+                self.loaderrorcount+=1;raise Error("--ErrID12: Invalid URL or variable key provided.")
                 self.output = None
-                if self.REPL == 0: self.cmd_exit()
+               
 
                 return
 
@@ -928,7 +929,7 @@ try:
                 if self.reqdebug:
                     print(f"[DEBUG] Data fetched and stored in output: {self.output}")
             except requests.exceptions.RequestException as e:
-                print(f"[CRITICAL ERROR] Failed to fetch data from API. Error: {e}")
+                print(f"[Unrecognised Error] Failed to fetch data from API. Error: {e}")
                 self.output = None
                 self.cmd_exit()
 
@@ -945,11 +946,11 @@ try:
             """Processes commands, handles function definitions, and executes appropriately."""
             # Early return for empty lines or comments
             if self.REPL == 1 and self.semo == True and not(("semo" in command) and ("setclientrule" in command)):
-                self.loaderrorcount+=1;print("--ErrID72: Script Execution Mode Only (SEMO) is enabled. Cannot run commands.")
-                self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID72: Script Execution Mode Only (SEMO) is enabled. Cannot run commands.")
             if not command or command.startswith(("//", "\\")):
                 return
-
+            if "##" in command and not command.startswith("prt "):
+                command = self.replace_additional_parameters(command)
             if getattr(self, "in_function_definition", False):
                 if command.strip().lower() == "fncend":
                     if self.cmdhandlingdebug:
@@ -962,30 +963,24 @@ try:
                         print(f"[DEBUG] Added line to function '{self.current_function_name}': {command}")
                     return
 
-
-
-
-            # Prepare command parts (special handling for 'prt' to preserve spaces)
             is_prt = command.startswith('prt ')
             if is_prt:
                 parts = re.findall(r'\S+|\s+', command)
                 cmd = 'prt'
-                args = command[4:]  # Keep original spacing after 'prt'
+                args = command[4:] 
             else:
                 command = command.strip()
                 parts = command.split()
-                if not parts:  # Handle case where command was all whitespace
+                if not parts:  
                     return
                 cmd = parts[0]
                 args = ' '.join(parts[1:]).strip()
 
-            # Strip comments from arguments (except for prt which handles its own formatting)
             if not is_prt and "//" in args:
                 args = self.comment_strip(args)
 
-            # Check execution state
             if not self.should_execute():
-                control_flow_commands = {"else", "end", "while", "if"}  # ← added while and if here
+                control_flow_commands = {"else", "end", "while", "if"}
                 if cmd in control_flow_commands:
                     if self.ctrflwdebug:
                         print(f"[DEBUG] Handling control command '{cmd}' even in inactive block")
@@ -998,12 +993,10 @@ try:
                         print(f"[DEBUG] Skipping command '{command}' due to inactive block")
                 return
 
-            # Execute recognized commands
             if cmd in self.command_mapping:
                 if self.cmdhandlingdebug:
                     print(f"[DEBUG] Handling command: '{command}'")
 
-                # No-arg commands
                 no_arg_commands = {"else", "end", "dev.custom", "flush", "--info", "reinit", "fncend"}
                 if cmd in no_arg_commands:
                     self.command_mapping[cmd]()
@@ -1013,10 +1006,8 @@ try:
                 if self.cmdhandlingdebug:
                     print(f"[DEBUG] Command '{cmd}' executed with args: '{args}'")
             else:
-                self.loaderrorcount+=1;print(f"--ErrID73: Unrecognized command: {command}")
-                if self.REPL == 0:
-        
-                    self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID73: Unrecognized command: {command}")
+
         def dev(self, raw_args):
             """
             Enable or disable various debugging options dynamically.
@@ -1030,9 +1021,9 @@ try:
             - dev requests     → Enables requests debugging
             - dev condition    → Enables condition evaluation debugging
             - dev variable     → Enables variable handling debugging
-            - dev All          → Enables all debugging options
-            - dev cmdhandling  → Enables Command handling debugging
+            - dev command  → Enables Command handling debugging
             - dev None         → Disables all debugging options
+            - dev All          → Enables all debugging options
             """
             
             #  Debugging options dictionary
@@ -1043,7 +1034,7 @@ try:
                 "file": "filedebug",
                 "colorama": "clramadebug",
                 "requests": "reqdebug",
-                "cmdhandling": "cmdhandlingdebug",
+                "command": "cmdhandlingdebug",
                 "condition": "conddebug",
                 "variable": "vardebug",
             }
@@ -1052,7 +1043,7 @@ try:
                 print("[SELF-DEBUG] Please provide a debug option (e.g., 'dev controlflow').")
                 return
 
-            args = raw_args.lower().split()  # Convert input to lowercase for case-insensitive matching 
+            args = raw_args.lower().split()
 
             if "all" in args or "none" in args:
                 enable = "all" in args
@@ -1090,7 +1081,7 @@ try:
         #DEPRECATED IN MintEclipse
         def cmd_catch(self, args):
             if not self.control_stack or self.control_stack[-1]["type"] != "try":
-                self.loaderrorcount+=1;print("--ErrID35: 'catch' command outside of 'try' block")
+                self.loaderrorcount+=1;raise Error("--ErrID35: 'catch' command outside of 'try' block")
                 self.cmd_exit("Exiting due to invalid catch command.")
                 return
 
@@ -1107,7 +1098,7 @@ try:
                 self.cmd_log(f"[LOG] Defaulting age to 18")
 
             else:
-                self.loaderrorcount+=1;print("--ErrID36: No error to catch")
+                self.loaderrorcount+=1;raise Error("--ErrID36: No error to catch")
                 self.cmd_exit("Exiting due to invalid catch behavior.")
         """
         def cmd_log(self, *args):
@@ -1132,11 +1123,7 @@ try:
             """
             parts = args.split()
             if len(parts) != 2:
-                self.loaderrorcount+=1;print("--ErrID70: Incorrect syntax for str_len. Expected: str_len var_name result_var")
-                if self.REPL == 0: self.cmd_exit()
-
-                return
-
+                self.loaderrorcount+=1;raise Error("--ErrID70: Incorrect syntax for str_len. Expected: str_len var_name result_var")
             var_name, result_var = parts  
 
             if var_name in self.variables:
@@ -1147,11 +1134,11 @@ try:
                     if self.cmdhandlingdebug:
                         print(f"[DEBUG]Length of '{var_name}' stored in '{result_var}': {length}")
                 else:
-                    self.loaderrorcount+=1;print(f"--ErrID71: Variable '{var_name}' is not a string.")
-                    if self.REPL == 0: self.cmd_exit()
+                    self.loaderrorcount+=1;raise Error(f"--ErrID71: Variable '{var_name}' is not a string.")
+                   
 
-                self.loaderrorcount+=1;print(f"--ErrID72: Variable '{var_name}' not found.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID72: Variable '{var_name}' not found.")
+               
         def similarity_percentage(self, str1, str2):
             similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
             return float(similarity)
@@ -1170,7 +1157,6 @@ try:
             if not "##" in input_str:
                 return input_str
             
-            #  STEP 1: Bracket-style params like ##key:(value)
             bracket_pattern = re.compile(r"(##[a-zA-Z_]\w*(?::[a-zA-Z_]\w+)*):\(([^()]*)\)")
             matches = bracket_pattern.findall(input_str)
 
@@ -1190,17 +1176,17 @@ try:
                         if result is None:
                             result = "None"
                     else:
-                        #self.loaderrorcount+=1;print(f"--ErrID38: Function '{full_key}' not defined.")
+                        #self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' not defined.")
                         #if self.REPL == 0: self.cmd_exit()
                         #result="None"
                         continue
                 except AttributeError:
-                    self.loaderrorcount+=1;print(f"--ErrID38: Function '{full_key}' not defined.")
-                    if self.REPL == 0: self.cmd_exit()
+                    self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' not defined.")
+                   
                     result = "<UNDEFINED FUNCTION>"
                 except TypeError:
-                    self.loaderrorcount+=1;print(f"--ErrID38: Function '{full_key}' called with incorrect arguments.")
-                    if self.REPL == 0: self.cmd_exit()
+                    self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' called with incorrect arguments.")
+                   
                     result = "<TYPE ERROR>"
                 except Exception as e:
                     if self.cmdhandlingdebug:
@@ -1242,8 +1228,8 @@ try:
             parts = raw_args.strip().split()
 
             if len(parts) < 3:
-                self.loaderrorcount+=1;print("--ErrID80: Invalid variable registration format.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID80: Invalid variable registration format.")
+               
                 return
 
             var_type = parts[0]   # int, float, str, etc.
@@ -1254,6 +1240,8 @@ try:
                 print(f"[DEBUG] Parsed Variable '{var_name}' of type '{var_type}' with value '{var_value_raw}'")
 
             try:
+
+
                 # Variable substitution
                 def var_replacer(match):
                     var = match.group(1)
@@ -1263,23 +1251,28 @@ try:
                     elif var in self.variables:
                         val = self.variables[var][0]
                     else:
-                        self.loaderrorcount+=1;print(f"--ErrID38: Variable '${var}' not found.")
+                        self.loaderrorcount+=1;raise Error(f"--ErrID38: Variable '${var}' not found.")
 
                     # For strings, add quotes
                     return f'"{val}"' if isinstance(val, str) and not val.replace(".", "", 1).isdigit() else str(val)
 
                 var_value = re.sub(r'\$([a-zA-Z_]\w*)', var_replacer, var_value_raw)
+                var_value = self.replace_variables(var_value)
 
+                if var_type in ["int", "float", "str"]:
+                    var_value = self.replace_variables(var_value)  # <<< THIS
                 if self.mathdebug:
                     print(f"[DEBUG] After substitution: '{var_value}'")
-
                 # Evaluate math expressions for numeric types
                 if var_type in ["int", "float"]:
-                    evaluated = eval(var_value, {"__builtins__": {}}, {})
-                    if var_type == "int":
-                        final_value = int(evaluated)
-                    else:
-                        final_value = float(evaluated)
+                    var_value = self.replace_variables(var_value).strip()
+                    try:
+                        if var_type == "int":
+                            final_value = int(eval(var_value, {"__builtins__": {}}, {}))
+                        else:  # float
+                            final_value = float(eval(var_value, {"__builtins__": {}}, {}))
+                    except Exception:
+                        raise Error(f"Invalid {var_type} value: {var_value}")
 
                 else:
                     # For strings, remove surrounding quotes if needed
@@ -1289,8 +1282,8 @@ try:
                         final_value = var_value  # raw value fallback
 
             except Exception as e:
-                self.loaderrorcount+=1;print(f"--ErrID84: Failed to evaluate variable '{var_name}': {e}")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID84: Failed to evaluate variable '{var_name}': {e}")
+               
                 return
 
             # Store the value
@@ -1324,7 +1317,7 @@ try:
                 if self.REPL == 0:
                     self.cmd_exit()
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to delete file '{filename}'. Error: {e}")
+                print(f"[Unrecognised Error] Failed to delete file '{filename}'. Error: {e}")
                 self.cmd_exit()
 
         def cmd_create_dir(self, args):
@@ -1343,7 +1336,7 @@ try:
                 if self.REPL == 0:
                     self.cmd_exit()
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to create directory '{directory_name}'. Error: {e}")
+                print(f"[Unrecognised Error] Failed to create directory '{directory_name}'. Error: {e}")
                 self.cmd_exit()
 
         def cmd_delete_dir(self, args):
@@ -1372,7 +1365,7 @@ try:
                 if self.REPL == 0:
                     self.cmd_exit()
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to delete directory '{directory_name}'. Error: {e}")
+                print(f"[Unrecognised Error] Failed to delete directory '{directory_name}'. Error: {e}")
                 self.cmd_exit()
 
         def cmd_search_file(self, args):
@@ -1408,7 +1401,7 @@ try:
                 if self.REPL == 0:
                     self.cmd_exit()
             except Exception as e:
-                print(f"[CRITICAL ERROR] Failed to search file. Error: {e}")
+                print(f"[Unrecognised Error] Failed to search file. Error: {e}")
                 self.cmd_exit()
 
         def cmd_sys_info(self, args):
@@ -1504,8 +1497,8 @@ try:
                         self.cmd_exit("Exiting due to error in inp command.")
         def cmd_fetch(self, args):
             if len(args) < 1:
-                self.loaderrorcount+=1;print("--ErrID3: Incorrect number of arguments for fetch command")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID3: Incorrect number of arguments for fetch command")
+               
                 return
             url = args[0]
             if url in self.variables:           
@@ -1553,19 +1546,19 @@ try:
 
                 #Validate function name
                 if not tokens:
-                    self.loaderrorcount+=1;print("--ErrID3: Missing function name. Usage: def function_name [params]")
-                    if self.REPL == 0: self.cmd_exit()
+                    self.loaderrorcount+=1;raise Error("--ErrID3: Missing function name. Usage: def function_name [params]")
+                   
                     return
 
                 function_name = tokens[0]
                 if not function_name.isidentifier():
-                    self.loaderrorcount+=1;print(f"--ErrID4: Invalid function name '{function_name}'. Must be a valid identifier.")
-                    if self.REPL == 0: self.cmd_exit()
+                    self.loaderrorcount+=1;raise Error(f"--ErrID4: Invalid function name '{function_name}'. Must be a valid identifier.")
+                   
                     return
 
                 if function_name in self.functions:
-                    self.loaderrorcount+=1;print(f"--ErrID8: Function '{function_name}' is already defined.")
-                    if self.REPL == 0: self.cmd_exit()
+                    self.loaderrorcount+=1;raise Error(f"--ErrID8: Function '{function_name}' is already defined.")
+                   
                     return
 
                 #Capture parameters
@@ -1582,23 +1575,24 @@ try:
                 self.in_function_definition = True
 
             except Exception as e:
-                print(f"[CRITICAL ERROR] cmd_def: {e}")
-                if self.REPL == 0: self.cmd_exit()
+                raise Error(f"{e}")
+               
                 
         def cmd_fncend(self):
             """
             Marks the end of a function definition block.
             """
             if not getattr(self, "in_function_definition", False):
-                self.loaderrorcount+=1;print("--ErrID9: 'fncend' used outside of a function definition.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID9: 'fncend' used outside of a function definition.")
+               
                 return
 
             if self.ctrflwdebug:
                 print(f"[DEBUG] Function '{self.current_function_name}' definition completed.")
 
             self.in_function_definition = False
-            self.current_function_name = None 
+            self.current_function_name = None
+        
         def cmd_call(self, args):
             """
             Calls a previously defined function, passing arguments as needed.
@@ -1606,18 +1600,22 @@ try:
                 call function_name [args...]
             """
             self.local=True
+            try:
+                args=int(args)
+            except:
+                pass
             args = self.replace_additional_parameters(args)
-            parts = shlex.split(args.strip())
+            args=self._int_replacer(args)
+            parts = shlex.split(args.strip(" "))
+            parts=self._int_replacer(parts)
             if not parts:
-                self.loaderrorcount+=1;print("--ErrID36: No function name specified in 'call'")
-                if self.REPL == 0: self.cmd_exit()
-                return
+                self.loaderrorcount+=1;raise Error("--ErrID36: No function name specified in 'call'")
+  
 
             function_name = parts[0]
             if function_name not in self.functions:
-                self.loaderrorcount+=1;print(f"--ErrID37: Function '{function_name}' not defined.")
-                if self.REPL == 0: self.cmd_exit()
-                return
+                self.loaderrorcount+=1;raise Error(f"--ErrID37: Function '{function_name}' not defined.")
+
 
             fnc = self.functions[function_name]
             fnc_params = fnc.get("params", [])
@@ -1626,8 +1624,8 @@ try:
 
             #Check parameter count
             if len(passed_args) != len(fnc_params):
-                self.loaderrorcount+=1;print(f"--ErrID38: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")
+               
                 return
             # Setup local variables
             self.local_variables = {}
@@ -1652,21 +1650,21 @@ try:
         def cmd_switch(self, args):
             """Switch-case implementation."""
             if not args:
-                self.loaderrorcount+=1;print("--ErrID3: Incorrect number of arguments for switch command")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID3: Incorrect number of arguments for switch command")
+               
 
             switch_var = args[0]
             if switch_var not in self.variables:
-                self.loaderrorcount+=1;print(f"--ErrID31: Variable '{switch_var}' not defined.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error(f"--ErrID31: Variable '{switch_var}' not defined.")
+               
 
             self.control_stack.append({"type": "switch", "variable": self.variables[switch_var][0], "executed": False})
 
         def cmd_case(self, args):
             """Case block in a switch."""
             if not self.control_stack or self.control_stack[-1]["type"] != "switch":
-                self.loaderrorcount+=1;print("--ErrID32: 'case' command outside of 'switch' block.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID32: 'case' command outside of 'switch' block.")
+               
 
             case_value = args[0]
             current_switch = self.control_stack[-1]
@@ -1677,15 +1675,15 @@ try:
         def cmd_default(self, args):
             """Default block in a switch."""
             if not self.control_stack or self.control_stack[-1]["type"] != "switch":
-                self.loaderrorcount+=1;print("--ErrID33: 'default' command outside of 'switch' block.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID33: 'default' command outside of 'switch' block.")
+               
 
             self.control_stack[-1]["default"] = args
 
         def cmd_inc(self, args):
             """Increment a registered integer variable."""
             if len(args) != 1:
-                self.loaderrorcount+=1;print("--ErrID03: INC requires exactly one argument (variable name).")
+                self.loaderrorcount+=1;raise Error("--ErrID03: INC requires exactly one argument (variable name).")
                 if self.REPL == 0:
                     self.cmd_exit()
                 return
@@ -1700,7 +1698,7 @@ try:
                 if self.ctrflwdebug:
                     print(f"[DEBUG] INC: {var_name} incremented to {new_value}")
             else:
-                self.loaderrorcount+=1;print(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
+                self.loaderrorcount+=1;raise Error(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
                 if self.REPL == 0:
                     self.cmd_exit()
 
@@ -1708,7 +1706,7 @@ try:
         def cmd_dec(self, args):
             """Decrement a registered integer variable."""
             if len(args) != 1:
-                self.loaderrorcount+=1;print("--ErrID03: DEC requires exactly one argument (variable name).")
+                self.loaderrorcount+=1;raise Error("--ErrID03: DEC requires exactly one argument (variable name).")
                 if self.REPL == 0:
                     self.cmd_exit()
                 return
@@ -1722,7 +1720,7 @@ try:
                 if self.ctrflwdebug:
                     print(f"[DEBUG] DEC: {var_name} decremented to {new_value}")
             else:
-                self.loaderrorcount+=1;print(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
+                self.loaderrorcount+=1;raise Error(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
                 if self.REPL == 0:
                     self.cmd_exit()
                     
@@ -1733,8 +1731,8 @@ try:
                 self.log_debug(f"Waiting for {duration} seconds...")
                 time.sleep(duration)
             except ValueError:
-                self.loaderrorcount+=1;print("--ErrID3: Duration must be an integer.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID3: Duration must be an integer.")
+               
 
         def cmd_add(self, args):
             self.perform_arithmetic_operation(args, operation="add")
@@ -1754,7 +1752,25 @@ try:
             self.perform_arithmetic_operation(args, operation="pow")
         def cmd_inv_sqrt(self, args):
             self.perform_arithmetic_operation(args, operation="inv_sqrt")
+        def cmd_sqrt(self, args):
+            """
+            Calculates the square root of a number.
+            Syntax: sqrt var_name
+            """
+            try:
+                var_name = args.strip()
+                if var_name in self.variables and isinstance(self.variables[var_name][0], (int, float)):
+                    value = self.variables[var_name][0]
+                    result = value ** 0.5
+                    self.store_variable(f"{var_name}_sqrt", result, "float")
+                    print(f"Square root of {value} stored in '{var_name}_sqrt'.")
+                else:
+                    self.loaderrorcount+=1;raise Error(f"--ErrID66: Variable '{var_name}' not defined or not numeric.")
+                   
 
+            except Exception as e:
+                print(f"[Unrecognised Error] Failed to calculate square root. Error: {e}")
+                self.cmd_exit()
 
         def cmd_fastmath(self,a):x,e=a.split('=',1);r=eval(e,{'__builtins__':None,'math':math},{k:self.variables[k][0]for k in self.variables});self.variables[x.strip()]=[r,'float'if type(r) is float else'int']
         """
@@ -1864,9 +1880,8 @@ try:
                 args = args.split(", ")
 
             if len(args) < 5:
-                self.loaderrorcount+=1;print("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")
-                if self.REPL == 0: self.cmd_exit()
-
+                self.loaderrorcount+=1;raise Error("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")
+               
                 return
 
             # Check if 'load' is given BEFORE checking colors
@@ -1892,8 +1907,8 @@ try:
 
             # Extract remaining arguments
             if len(args) < 5:
-                self.loaderrorcount+=1;print("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")
+               
 
                 return
 
@@ -1902,8 +1917,8 @@ try:
             try:
                 pos_x, pos_y, width, height = map(int, [pos_x, pos_y, width, height])
             except ValueError:
-                self.loaderrorcount+=1;print("--ErrID101: Position and size parameters must be integers.")
-                if self.REPL == 0: self.cmd_exit()
+                self.loaderrorcount+=1;raise Error("--ErrID101: Position and size parameters must be integers.")
+               
 
                 return
 
@@ -1954,8 +1969,8 @@ try:
                 try:
                     target_line = int(line_number)
                     if target_line < 1 or target_line > len(self.script_lines):
-                        self.loaderrorcount+=1;print(f"--ErrID75: Line {target_line} is out of range.")
-                        if self.REPL == 0: self.cmd_exit()
+                        self.loaderrorcount+=1;raise Error(f"--ErrID75: Line {target_line} is out of range.")
+                       
 
                         return
                     self.current_line = target_line - 1  # Adjusted for 0-based index
@@ -1963,10 +1978,10 @@ try:
                         print(f"[DEBUG] Jumping to line {target_line}.")
 
                 except ValueError:
-                    self.loaderrorcount+=1;print(f"--ErrID76: Invalid line number '{line_number}'. Must be an integer.")
-                    if self.REPL == 0: self.cmd_exit()
+                    self.loaderrorcount+=1;raise Error(f"--ErrID76: Invalid line number '{line_number}'. Must be an integer.")
+                   
                 except Exception as e:
-                    print(f"[CRITICAL ERROR]: '{e}'")    
+                    print(f"[Unrecognised Error]: '{e}'")    
             else:
                 print(f"[DEBUG] GOTO command is not available in REPL mode.")
     def main():
@@ -1992,7 +2007,7 @@ try:
                             interpreter.current_line += 1  # Move to the next line unless `goto` changes it (i hope this doesnt breaks anything)
 
                 except Exception as exc:
-                    print(f"[CRITICAL ERROR] Could not load {args.file} due to reason:{exc}")  
+                    print(f"[Unrecognised Error] Could not load {args.file} due to reason:{exc}")  
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting")
 
@@ -2010,9 +2025,7 @@ try:
         except (KeyboardInterrupt, EOFError):
             print("\nExiting.")
         except Exception as e:
-            print(f"[CRITICAL ERROR] An error occurred: {e}")
-            if interpreter.REPL == 0:
-                interpreter.cmd_exit("Exiting due to critical error.")
+            print(f"{e}")
     if __name__ == "__main__":
         #cProfile.run("main()")
         main()
@@ -2020,7 +2033,7 @@ except (KeyboardInterrupt, EOFError):
     print("\nExiting")
 
 except Exception as e:
-    print(f"[CRITICAL ERROR]: {e},\nTerminating script.")
+    print(f"[ERROR]: {e},\nTerminating script.")
 #Official 1k lines of code!!-November/24
 #Development Phase start of Eclispe-March/25
 #Official release of Eclispe 0.9. May/25
