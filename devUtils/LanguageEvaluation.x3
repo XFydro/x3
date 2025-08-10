@@ -1,0 +1,362 @@
+// --- Variable Registration and Math ---
+reg int TIMESTART ##msec
+prt "VARIABLE REGISTRATION AND MATH OPERATIONS TEST"border=:
+reg int a 5
+reg int b 10
+reg int c ($a + $b)
+add result $c 15
+sub diff $result 5
+mul product $a $b
+div quotient $b $a
+mod remainder $b $a
+if remainder == 0 & quotient == 2 & $result == 30 & $diff == 25 & product == 50
+    prt "Variable registration and math operations test success!"
+else
+    prt "VRMO TEST FAILED!" border=~
+    prt "Expected: c=15, result=30, diff=25, product=50, quotient=2, remainder=0"
+    prt "Got: c=$c, result=$result, diff=$diff, product=$product, quotient=$quotient, remainder=$remainder"
+    exit 1
+end
+
+prt "END OF VARIABLE REGISTRATION AND MATH OPERATIONS TEST"border=:
+
+// --- Control Flow ---
+
+prt "BASIC CONDITION TEST"border=:
+
+if $c == 15
+    prt "Basic condition test success!"
+else
+    prt "BC TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+
+prt "END OF CONTROL FLOW TEST"border=:
+
+// --- Local Var Scope Test ---
+
+prt "LOCAL VARIABLE TEST"border=:
+
+def greet
+    reg int functest 1
+    reg int functest2 2
+fncend
+
+call greet
+prt "Function called, functest=$functest, functest2=$functest2"
+if $functest == 1 and $functest2 == 2
+    prt "LV TEST FAILED!" border=~
+    prt "Expected: Fail, got: Success"
+    exit 1
+else
+
+end
+prt "END OF LOCAL VARIABLE TEST"border=:
+
+// --- Function Calls and Return Values ---
+
+prt "FUNCTION CALLS AND RETURN VALUES TEST"border=:
+def add_numbers
+    reg int a 5
+    reg int b 10
+    reg int sum ($a + $b)
+    return $sum
+fncend
+if ##add_numbers:() == 15
+    prt "Function calls and return values test success!"
+else
+    prt "FCRV TEST FAILED!" border=~
+    prt "Expected: 15, got: ##add_numbers:()"
+    exit 1
+end
+// --- String Ops and Utility ---
+
+prt "STRING OPERATIONS AND UTILITY TEST"border=:
+reg str name "Eclipse"
+prt "Hello World from $name!"
+reg str url "https://example.com"
+prt "END OF STRING OPERATIONS AND UTILITY TEST"border=:
+
+// --- Text Effects and Formatting ---
+
+prt "TEXT EFFECTS AND FORMATTING TEST"border=:
+prt "Stylized output with border and effect" border=: effect=bold
+prt "Uppercase text" case=upper
+prt "JSON formatted" format=json
+prt "HTML output" format=html
+prt "END OF TEXT EFFECTS AND FORMATTING TEST"border=:
+
+// --- Fast Math and Square Root ---
+
+prt "FAST MATH AND SQUARE ROOT TEST"border=:
+fastmath fast_result = (b * b) 
+if $fast_result == 100
+    prt "Fast Math operation success!"
+else
+    prt "FM TEST FAILED!" border=~
+    prt "Expected: 100, got: $fast_result"
+    exit 1
+end
+sqrt b
+if $b_sqrt == 3.1622776601683795 & $fast_result == 100
+    prt "Fast Math and Square Root tests passed!"
+else
+    prt "FMSR TEST FAILED!" border=~
+    prt "Expected: b_sqrt=3.1622776601683795, fast_result=100"
+    prt "instead got: b_sqrt=$b_sqrt, fast_result=$fast_result"
+    exit 1
+end
+
+prt "END OF FAST MATH AND SQUARE ROOT TEST"border=:
+
+// --- System Info and Environment ---
+
+prt "SYSTEM INFO AND ENVIRONMENT TEST"border=:
+sys_info
+prt "END OF SYSTEM INFO AND ENVIRONMENT TEST"border=:
+
+// ---Wait + Dev Debug ---
+
+prt "WAIT AND DEV DEBUG TEST"border=:
+dev.debug All
+reg int waitcountstart ##timestamp
+wait 1
+reg int waitcountstop ##timestamp
+reg int waittotal $waitcountstop-$waitcountstart
+prt "execution waited for $waittotal seconds (should be ≈1)"
+prt "END OF WAIT AND DEV DEBUG TEST"border=:
+dev.debug None
+// Test int, float, bool, and string evaluation
+
+prt "INT FLOAT STRING EVALUATION TEST"border=:
+reg int a 10
+reg float pi 3.14
+reg str msg "X3Test"
+prt "END OF INT FLOAT STRING EVALUATION TEST"border=:
+
+// Interpolate and print all
+prt "INTERPOLATION TEST"border=:
+prt "a=$a, pi=$pi, msg=$msg (should be a=10, pi=3.14, msg=X3Test)"
+prt "END OF INTERPOLATION TEST"border=:
+
+// Expression eval with float
+
+prt "EXPRESSION EVALUATION TEST"border=:
+reg float circle_area ($pi * $a * $a)
+if $circle_area == 314
+    prt "Expression evaluation test success!"
+else
+    prt "EE TEST FAILED" border=~
+    prt "Expected: 314, got: $circle_area"
+    exit 1
+end
+
+prt "END OF EXPRESSION EVALUATION TEST"border=:
+// Boolean string comparison
+
+prt "CASE-INSENSITIVE STRING COMPARISON TEST"border=:
+if $msg ==ic "x3test"
+    prt "Case-insensitive string comparison test success!"
+else
+    prt "C-ISC TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+
+prt "END OF CASE-INSENSITIVE STRING COMPARISON TEST"border=:
+
+// Multiple conditions with range check with nested if else.
+
+prt "MULTIPLE CONDITIONS AND NESTED IF ELSE TEST"border=:
+reg int temp 25
+if $temp > 0 and $temp < 100
+    prt "Multiple condition test success!"
+    if $temp < 30
+      prt "Nested if else test success!"
+    else
+      prt "MCNIE TEST FAILED!" border=~
+      prt "Expected: Success, got: Fail"
+      exit 1
+end
+
+else
+    prt "MCNIE TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+
+prt "END OF MULTIPLE CONDITIONS AND NESTED IF ELSE TEST"border=:
+// Invalid comparison (var doesn't exist)
+
+prt "INVALID COMPARISON TEST" border=:
+if $notfound == 10
+    prt "IC TEST FAILED!" border=~
+    prt "Expected: Fail, got: Success"
+    exit 1
+else
+    prt "Invalid comparison test success!"
+end
+
+prt "END OF INVALID COMPARISON TEST"border=:
+prt x3 evaluation stage1 complete delay=0.025 border=0 case=upper
+
+// --- End of X3 STAGE1 ---
+
+
+// --- X3 STAGE2 ---
+// Stage 2 Test: Arithmetic, Variables, Functions, Logic
+
+prt "X3 STAGE2: G.L.E.S.S.L.A.W. TEST"border=:
+reg int a 10
+reg int b 5
+reg str name "Eclipse"
+
+add result $a $b 
+sub diff $result 3     
+mul square $b $b
+div half $result 2   
+mod rem $a $b        
+prt ##interpreter:vars
+
+if $diff > 10
+    prt "Greater than comparison test success!"
+else
+    prt "GTC TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+
+if $diff < 20
+    prt "Less than comparison test success!"
+else
+    prt "LTC TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+
+if $diff == 12
+    prt "Equality comparison test success!"
+else
+    prt "ECT TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+
+if $name == "Eclipse"
+    prt "String comparison test success!"
+else
+    prt "SCT TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+reg str message "Hello, X3!"
+if $message == "Hello, X3!"
+    prt "String equality test success!"
+else
+    prt "SET TEST FAILED!" border=~
+    prt "Expected: Success, got: Fail"
+    exit 1
+end
+def b part2
+    reg int b 2
+fncend
+call b 0
+if $b == 2
+    prt "LV2 TEST FAILED" border=~
+    prt "Expected: b!=5, got: b==2($b)"
+    exit 1
+else
+    prt "Local variable part2 test success!"
+end
+if $result == 15 & $diff == 12 & $square == 25 & $half == 7.5 & $rem == 0
+    prt "All arithmetic operations passed!"
+else
+    prt "AT TEST FAILED" border=~
+    prt "Expected: result=15, diff=12, square=25, half=7.5, rem=0"
+    prt "Got: result=$result, diff=$diff, square=$square, half=$half, rem=$rem"
+    exit 1
+end
+if ##REPL == 0
+  reg int loops 3
+  reg int i $loops
+  while $i > 0
+      reg int i ($i - 1)
+  end
+  if $i == 0
+      prt "While counter test success!"
+  else
+      prt "WC TEST FAIL" border=~
+      prt "Expected: i=0, got: i=$i"
+      exit 1
+  end
+end
+setclientrule SEMO
+prt ##interpreter:vars
+prt "END OF X3 STAGE2: G.L.E.S.S.L.A.W. TEST" border=:
+prt X3 STAGE2: G.L.E.S.S.L.A.W. TEST COMPLETE delay=0.025 border=0 
+
+dev.debug none
+// --- End of X3 STAGE2 ---
+// --- X3 FINAL EVALUATION STEPS ---
+prt "X3 FINAL EVALUATION STEPS" border=:
+// Final evaluation of all tests
+//Final Evaluation: IF, ELSE, WHILE, nesting test
+//Setup
+reg int i 3
+reg str result "none"
+//Main IF branch
+if ##REPL == 0
+  if $i >= 3
+      prt "IF-1 entered (i >= 3)" border=#
+      reg int counter 0
+
+      //WHILE loop inside IF
+      while $i > 0
+          prt "WHILE loop running: i=$i"
+          reg int i ($i - 1)
+          reg int counter ($counter + 1)
+          prt "Counter incremented: $counter"
+          prt "Current i value: $i"
+          //Nested IF inside WHILE
+          if $i == 1
+              prt "NESTED IF: i is almost done"
+          else
+              prt "NESTED ELSE: still looping"
+          end
+      end
+      //After WHILE
+      if $counter == 3
+          reg str result "success"
+          prt "Loop ran exactly 3 times"
+      else
+          reg str result "failed_loop"
+      end
+
+  else
+      prt "ELSE branch entered"
+      reg str result "else_branch"
+  end
+end
+
+//Final output
+prt "Final result: $result" border=@
+
+prt "END OF X3 FINAL EVALUATION STEPS" border=:
+// --- End of X3 FINAL EVALUATION STEPS ---
+prt "TOTAL X3 EVALUATION COMPLETE" border=0
+// --- End of X3 EVALUATION COMPLETE ---
+
+cls legacy
+
+reg int i 0
+reg str bar "█"
+reg str colors "@#~*!%=+"
+
+prt ($bar$bar$bar $msg $bar$bar$bar) border=@#~*!%=+
+
+reg str status "SUCCESS"
+prt "Status: $status" border=#
+reg int TIMESTOP ##msec
+reg int elapsed_time ($TIMESTOP - $TIMESTART)
+prt "Total execution time: $elapsed_time ms" border=0 align=right
