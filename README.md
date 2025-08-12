@@ -28,11 +28,10 @@ A beautiful, web-based editor created by a dear friend, supports X3!
 - ✅ **Rich Command Mapping**: Over 50 built-in commands (`reg`, `prt`, `if`, `while`, `def`, `call`, `fetch`, and more!)
 - 🔣 **Custom Variable Engine** with type handling and expression evaluation
 - 📦 **Additional Parameters** like `##random`, `##timestamp`, `##fetch:(url)`, `##env:(PATH)`
-- 🔐 **Safe Execution Modes** (`SEMO(Script Execution Mode Only)`, REPL toggle, and debug toggles(dev.debug))
+- 🔐 **Safe Execution Modes (using setclientrule)** (`semo(Script Execution Mode Only)`, repl toggle, and debug toggles(dev.debug))
 - 📚 **Script Loader** with error isolation, step-by-step tracking, and layered debug levels
-- 🎨 **ANSI Color Dictionary** for styled console outputs (doesnt works as expected)
-- 💥 **Fastmath Rule** for raw math execution (`fastmath x = ($a * $b) + 5`)
-- 📜 **Function Blocks** (`def`, `fncend`, `call`)
+- 💥 **Fastmath** for raw math execution (`fastmath x = ($a * $b) + 5`)
+- 📜 **Function Blocks** (`def`, `fncend`, `call`,`return`)
 - 🧠 **Advanced Condition Evaluation** with fuzzy matching, `startswith`, `contains`, and `==ic`
 
 ---
@@ -53,5 +52,11 @@ Required packages (auto-installed if not found):
 ## 🛠️ Usage
 
 ### 💻 Run a Script
+If you dont have the interpreter installed on PATH:
 ```bash
-python "minteclipse.py" "-f" "script.x3"
+python "C:/.../minteclipse.py" "-f" "script.x3"
+```
+If you do have the interpreter installed on PATH (you can use our **[installer](https://github.com/XFydro/x3/blob/installer1.2/interpreter.py)** for that :3 )
+```bash
+x3 -f "./script.x3"
+```
