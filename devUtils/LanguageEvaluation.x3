@@ -6,6 +6,7 @@ prt "|1: Disabled Print---------------------------------|"
 prt "|2: Debug Mode-------------------------------------|"
 prt "|##################################################|"
 prt "+--------------------------------------------------+"
+
 inp MODE "Please Select Mode(0-2)" 0
 if $MODE == 1
     prt "Disbaled All Print Commands" border=0
@@ -29,7 +30,7 @@ sub diff $result 5
 mul product $a $b
 div quotient $b $a
 mod remainder $b $a
-if remainder == 0 & quotient == 2 & $result == 30 & $diff == 25 & product == 50
+if $remainder == 0 and $quotient == 2 and $result == 30 and $diff == 25 and $product == 50
     prt "Variable registration and math operations test success!"
 else
     prt "VRMO TEST FAILED!" border=~
@@ -118,7 +119,7 @@ else
     exit 1
 end
 sqrt b
-if $b_sqrt == 3.1622776601683795 & $fast_result == 100
+if $b_sqrt == 3.1622776601683795 and $fast_result == 100
     prt "Fast Math and Square Root tests passed!"
 else
     prt "FMSR TEST FAILED!" border=~
@@ -295,7 +296,7 @@ if $b == 2
 else
     prt "Local variable part2 test success!"
 end
-if $result == 15 & $diff == 12 & $square == 25 & $half == 7.5 & $rem == 0
+if $result == 15 and $diff == 12 and $square == 25 and $half == 7.5 and $rem == 0
     prt "All arithmetic operations passed!"
 else
     prt "AT TEST FAILED" border=~
