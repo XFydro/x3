@@ -1,3 +1,23 @@
+reg str MODE "0"
+prt "+-------------------SELECT MODE--------------------+"
+prt "|##################################################|"
+prt "|0: Legacy Mode------------------------------------|"
+prt "|1: Disabled Print---------------------------------|"
+prt "|2: Debug Mode-------------------------------------|"
+prt "|##################################################|"
+prt "+--------------------------------------------------+"
+inp MODE "Please Select Mode(0-2)" 0
+if $MODE == 1
+    prt "Disbaled All Print Commands" border=0
+    setclientrule disableprt
+else
+    if $MODE == 2
+        prt "Debug Mode Enabled" border=0
+        dev.debug All
+    else
+        prt "Legacy Mode Selected" border=0
+    end
+end
 // --- Variable Registration and Math ---
 reg int TIMESTART ##msec
 prt "VARIABLE REGISTRATION AND MATH OPERATIONS TEST"border=:
@@ -44,13 +64,12 @@ def greet
 fncend
 
 call greet
-prt "Function called, functest=$functest, functest2=$functest2"
 if $functest == 1 and $functest2 == 2
     prt "LV TEST FAILED!" border=~
     prt "Expected: Fail, got: Success"
     exit 1
 else
-
+    prt "Local variable test success!"
 end
 prt "END OF LOCAL VARIABLE TEST"border=:
 
@@ -119,15 +138,21 @@ prt "END OF SYSTEM INFO AND ENVIRONMENT TEST"border=:
 // ---Wait + Dev Debug ---
 
 prt "WAIT AND DEV DEBUG TEST"border=:
-dev.debug All
+if $MODE == 2
+else
+    dev.debug All
+end
 reg int waitcountstart ##timestamp
 wait 1
 reg int waitcountstop ##timestamp
 reg int waittotal $waitcountstop-$waitcountstart
 prt "execution waited for $waittotal seconds (should be ≈1)"
 prt "END OF WAIT AND DEV DEBUG TEST"border=:
-dev.debug None
-// Test int, float, bool, and string evaluation
+if $MODE == 2
+    prt " "
+else
+    dev.debug None
+end
 
 prt "INT FLOAT STRING EVALUATION TEST"border=:
 reg int a 10
@@ -242,16 +267,17 @@ else
     prt "Expected: Success, got: Fail"
     exit 1
 end
-
-if $name == "Eclipse"
+reg str name2 "MintEclipse"
+if $name == "Eclipse" and $name2 != "Eclipse"
     prt "String comparison test success!"
 else
     prt "SCT TEST FAILED!" border=~
     prt "Expected: Success, got: Fail"
     exit 1
 end
+reg str msg1 "  Hello, World!"
 reg str message "Hello, X3!"
-if $message == "Hello, X3!"
+if $message == "Hello, X3!" and $msg1 == "  Hello, World!"
     prt "String equality test success!"
 else
     prt "SET TEST FAILED!" border=~
@@ -277,27 +303,29 @@ else
     prt "Got: result=$result, diff=$diff, square=$square, half=$half, rem=$rem"
     exit 1
 end
+//###########################################################
 if ##REPL == 0
-  reg int loops 3
-  reg int i $loops
-  while $i > 0
-      reg int i ($i - 1)
-  end
-  if $i == 0
-      prt "While counter test success!"
-  else
-      prt "WC TEST FAIL" border=~
-      prt "Expected: i=0, got: i=$i"
-      exit 1
-  end
+    reg int loops 3
+    reg int i $loops
+    while $i > 0
+        reg int i ($i - 1)
+    end
+    if $i == 0
+        prt "While counter test success!"
+    else
+        prt "WC TEST FAIL" border=~
+        prt "Expected: i=0, got: i=$i"
+        exit 1
+    end
+else
+    prt "REPL mode detected, skipping while loop test"       
 end
-setclientrule SEMO
+//###########################################################
+setclientrule semo
 prt ##interpreter:vars
 prt "END OF X3 STAGE2: G.L.E.S.S.L.A.W. TEST" border=:
 prt X3 STAGE2: G.L.E.S.S.L.A.W. TEST COMPLETE delay=0.025 border=0 
 
-dev.debug none
-// --- End of X3 STAGE2 ---
 // --- X3 FINAL EVALUATION STEPS ---
 prt "X3 FINAL EVALUATION STEPS" border=:
 // Final evaluation of all tests
@@ -305,55 +333,57 @@ prt "X3 FINAL EVALUATION STEPS" border=:
 //Setup
 reg int i 3
 reg str result "none"
-//Main IF branch
+//#################################################################
 if ##REPL == 0
-  if $i >= 3
-      prt "IF-1 entered (i >= 3)" border=#
-      reg int counter 0
+    if $i >= 3
+        prt "IF-1 entered (i >= 3)" border=#
+        reg int counter 0
 
-      //WHILE loop inside IF
-      while $i > 0
-          prt "WHILE loop running: i=$i"
-          reg int i ($i - 1)
-          reg int counter ($counter + 1)
-          prt "Counter incremented: $counter"
-          prt "Current i value: $i"
-          //Nested IF inside WHILE
-          if $i == 1
-              prt "NESTED IF: i is almost done"
-          else
-              prt "NESTED ELSE: still looping"
-          end
-      end
-      //After WHILE
-      if $counter == 3
-          reg str result "success"
-          prt "Loop ran exactly 3 times"
-      else
-          reg str result "failed_loop"
-      end
+        while $i > 0
+            prt "WHILE loop running: i=$i"
+            reg int i ($i - 1)
+            reg int counter ($counter + 1)
+            prt "Counter incremented: $counter"
+            prt "Current i value: $i"
+            if $i == 1
+                prt "NESTED IF: i is almost done"
+            else
+                prt "NESTED ELSE: still looping"
+            end
+        end
+        if $counter == 3
+            reg str result "success"
+            prt "Loop ran exactly 3 times"
+        else
+            reg str result "failed_loop"
+        end
 
-  else
-      prt "ELSE branch entered"
-      reg str result "else_branch"
-  end
+    else
+        prt "ELSE branch entered"
+        reg str result "else_branch"
+    end
+    prt "Final result: $result" border=@
+else
+    prt "REPL mode detected, skipping final evaluation steps"
+    reg str result "skipped_repl"
 end
+//#################################################################
 
-//Final output
-prt "Final result: $result" border=@
 
 prt "END OF X3 FINAL EVALUATION STEPS" border=:
 // --- End of X3 FINAL EVALUATION STEPS ---
 prt "TOTAL X3 EVALUATION COMPLETE" border=0
 // --- End of X3 EVALUATION COMPLETE ---
-
+if $MODE == 1
+    setclientrule disableprt
+else
+end
 cls legacy
 
 reg int i 0
 reg str bar "█"
-reg str colors "@#~*!%=+"
 
-prt ($bar$bar$bar $msg $bar$bar$bar) border=@#~*!%=+
+prt $bar$bar$bar END OF LANGUAGE EVALUATION $bar$bar$bar border=@#~*!%=+
 
 reg str status "SUCCESS"
 prt "Status: $status" border=#
