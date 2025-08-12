@@ -42,7 +42,6 @@ __Python3.6+
 __Pip(Latest Update for better experience)
 __Basic Internet Access
 __Minimal Hardware resources:2GB Ram
-__[Terminal which supports ANSI color codes] #optional
 __Patience because python is slow af :P
 
 """
@@ -81,9 +80,9 @@ try:
             self.vardebug:bool=False
             #---
             #Rules Init--
-            self.fastmath:bool=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
             self.semo:bool=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
             self.pedl:bool=False #Prevent Execution During Load, to prevent the interpreter to run commands during file loading, primarily for modules.
+            self.disableprt:bool=False #Disable Print, to disable the print command.
             #---
             self.command_mapping:dict = { 
                 'terminal': self.cmd_open_terminal,
@@ -227,15 +226,20 @@ try:
             }
 
         def setclientrule(self, args):
+            allowed=['repl', 'fastmath', 'semo', 'pedl','disableprt']
             newargs=args.split(" ")
             for i in range(0,len(newargs)):
-                if getattr(self, newargs[i], None) is not None:
-                    setattr(self, newargs[i], True) if not getattr(self, newargs[i]) else setattr(self, newargs[i], False)
-                    print(f"[DEBUG] Client rule '{newargs[i]}' set to {getattr(self, newargs[i])}.") if self.cmdhandlingdebug else None
+                if newargs[i] in allowed:
+                    if getattr(self, newargs[i], None) is not None:
+                        setattr(self, newargs[i], True) if not getattr(self, newargs[i]) else setattr(self, newargs[i], False)
+                        print(f"[DEBUG] Client rule '{newargs[i]}' set to {getattr(self, newargs[i])}.") if self.cmdhandlingdebug else None
+                else:
+                    raise Error(f"--ErrID103 Unknown client rule '{newargs[i]}'")
                 if newargs[i]=="reset":
-                    # Reset all rules to default
-                    self.fastmath = False
+                    # Reset all rules to default (i hope my lazy ahh wont forget updating this part everytime new rules are added) #12.8.25
                     self.semo = False
+                    self.pedl = False
+                    self.disableprt = False
                     print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
             print(f'Running on version:{VERSION},MintEclipse 0.3')
@@ -702,121 +706,122 @@ try:
             """
             Enhanced print command with styled, formatted, and interactive output.
             """
-            if not raw_args:
-                self.loaderrorcount+=1;raise Error("--ErrID37: No arguments provided for prt command.")
-               
-                return
-            # Default settings
-            settings = {
-                "color_code": "",
-                "alignment": None,
-                "delay": None,
-                "log_message": False,
-                "title": None,
-                "save_to_file": None,
-                "format_type": None,
-                "case": None,
-                "border": None,
-                "text_effect": None,
-            }
-
-            try:
-                # Preserve spaces inside quotes
-                args = raw_args[1:-1] if raw_args.startswith('"') and raw_args.endswith('"') else raw_args
-
-                # Parse settings using regex
-                settings_pattern = re.compile(r"(align|delay|title|tofile|format|case|border|effect|log)(?:=(\S+))?")
-                matches = settings_pattern.findall(args)
-                for key, value in matches:
-                    settings[key] = float(value) if key == "delay" else value.lower()
-
-                # Remove settings from args
-                args = settings_pattern.sub("", args).strip().replace("  ", " ")
-
-                # Handle log flag
-                if "log" in args.split():
-                    args = args.replace("log", "").strip()
-                    settings["log_message"] = True
-
-                # Variable interpolation
-                args = self.replace_variables(args)
-
-                # Apply case transformations
-                if settings["case"] == "upper":
-                    args = args.upper()
-                elif settings["case"] == "lower":
-                    args = args.lower()
-
-                # Apply text alignment
-                if settings["alignment"] == "center":
-                    args = args.center(80)
-                elif settings["alignment"] == "right":
-                    args = args.rjust(80)
-                elif settings["alignment"] == "left":
-                    args = args.ljust(80)
-
-                # Add borders if specified
-                if settings["border"]:
-                    border_char = settings["border"]
-                    padding = 1  # space between text and border
-                    content_line = f"{border_char}{' ' * padding}{args}{' ' * padding}{border_char}"
-                    border_length = len(content_line)
-                    
-                    border_line = border_char * (border_length // len(border_char))
-                    if len(border_line) < border_length:
-                        border_line += border_char[:border_length - len(border_line)]  # fill the gap
-
-                    args = f"{border_line}\n{content_line}\n{border_line}"
-
-                # Apply text effects
-                effect_map = {"bold": "\033[1m", "italic": "\033[3m"}
-                if settings["text_effect"] in effect_map:
-                    args = f"{effect_map[settings['text_effect']]}{args}\033[0m"
-
-                # Update terminal title
-                if settings["title"]:
-                    print(f"\033]0;{settings['title']}\a", end="")
-
-                # Format output
-                if settings["format_type"] == "json":
-                    args = json.dumps({"message": args}, indent=4)
-                elif settings["format_type"] == "html":
-                    args = f"<p>{args}</p>"
-
-                # Save output to file
-                if settings["save_to_file"]:
-                    with open(settings["save_to_file"], "w") as file:
-                        file.write(args + "\n")
-
-                # Log message if needed
-                if settings["log_message"]:
-                    self.log_messages.append(args)
-                args = self.replace_additional_parameters(args)
-
-                # Handle output & animated printing with delay
-                if settings["delay"]:
-                    import sys
-                    for char in args:
-                        sys.stdout.write(settings["color_code"] + char)
-                        sys.stdout.flush()
-                        time.sleep(settings["delay"])
-                    print("\033[0m")  # Reset color
-                elif args.strip() == "output":
-                    print(self.output)
-                else:
-                    print(args)
-                if self.prtdebug:
-                    print("[DEBUG] Print Settings: ", settings)
-
-            except ValueError as e:
-                self.loaderrorcount+=1;raise Error(f"--ErrID38: Value error in prt command. Details: {e}")
-               
-
-            except Exception as e:
-                print(f"[Unrecognised Error] Unexpected error in prt command. Details: {e}")
-                self.cmd_exit()
-
+            if not(self.disableprt):
+                if not raw_args:
+                    self.loaderrorcount+=1;raise Error("--ErrID37: No arguments provided for prt command.")
                 
+                    return
+                # Default settings
+                settings = {
+                    "color_code": "",
+                    "alignment": None,
+                    "delay": None,
+                    "log_message": False,
+                    "title": None,
+                    "save_to_file": None,
+                    "format_type": None,
+                    "case": None,
+                    "border": None,
+                    "text_effect": None,
+                }
+
+                try:
+                    # Preserve spaces inside quotes
+                    args = raw_args[1:-1] if raw_args.startswith('"') and raw_args.endswith('"') else raw_args
+
+                    # Parse settings using regex
+                    settings_pattern = re.compile(r"(align|delay|title|tofile|format|case|border|effect|log)(?:=(\S+))?")
+                    matches = settings_pattern.findall(args)
+                    for key, value in matches:
+                        settings[key] = float(value) if key == "delay" else value.lower()
+
+                    # Remove settings from args
+                    args = settings_pattern.sub("", args).strip().replace("  ", " ")
+
+                    # Handle log flag
+                    if "log" in args.split():
+                        args = args.replace("log", "").strip()
+                        settings["log_message"] = True
+
+                    # Variable interpolation
+                    args = self.replace_variables(args)
+
+                    # Apply case transformations
+                    if settings["case"] == "upper":
+                        args = args.upper()
+                    elif settings["case"] == "lower":
+                        args = args.lower()
+
+                    # Apply text alignment
+                    if settings["alignment"] == "center":
+                        args = args.center(80)
+                    elif settings["alignment"] == "right":
+                        args = args.rjust(80)
+                    elif settings["alignment"] == "left":
+                        args = args.ljust(80)
+
+                    # Add borders if specified
+                    if settings["border"]:
+                        border_char = settings["border"]
+                        padding = 1  # space between text and border
+                        content_line = f"{border_char}{' ' * padding}{args}{' ' * padding}{border_char}"
+                        border_length = len(content_line)
+                        
+                        border_line = border_char * (border_length // len(border_char))
+                        if len(border_line) < border_length:
+                            border_line += border_char[:border_length - len(border_line)]  # fill the gap
+
+                        args = f"{border_line}\n{content_line}\n{border_line}"
+
+                    # Apply text effects
+                    effect_map = {"bold": "\033[1m", "italic": "\033[3m"}
+                    if settings["text_effect"] in effect_map:
+                        args = f"{effect_map[settings['text_effect']]}{args}\033[0m"
+
+                    # Update terminal title
+                    if settings["title"]:
+                        print(f"\033]0;{settings['title']}\a", end="")
+
+                    # Format output
+                    if settings["format_type"] == "json":
+                        args = json.dumps({"message": args}, indent=4)
+                    elif settings["format_type"] == "html":
+                        args = f"<p>{args}</p>"
+
+                    # Save output to file
+                    if settings["save_to_file"]:
+                        with open(settings["save_to_file"], "w") as file:
+                            file.write(args + "\n")
+
+                    # Log message if needed
+                    if settings["log_message"]:
+                        self.log_messages.append(args)
+                    args = self.replace_additional_parameters(args)
+
+                    # Handle output & animated printing with delay
+                    if settings["delay"]:
+                        import sys
+                        for char in args:
+                            sys.stdout.write(settings["color_code"] + char)
+                            sys.stdout.flush()
+                            time.sleep(settings["delay"])
+                        print("\033[0m")  # Reset color
+                    elif args.strip() == "output":
+                        print(self.output)
+                    else:
+                        print(args)
+                    if self.prtdebug:
+                        print("[DEBUG] Print Settings: ", settings)
+
+                except ValueError as e:
+                    self.loaderrorcount+=1;raise Error(f"--ErrID38: Value error in prt command. Details: {e}")
+                
+
+                except Exception as e:
+                    print(f"[Unrecognised Error] Unexpected error in prt command. Details: {e}")
+                    self.cmd_exit()
+
+                    
                         
         def _int_replacer(self, args):
             for i in range(len(args)):
