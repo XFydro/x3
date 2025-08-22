@@ -324,16 +324,12 @@ try:
             except (FileNotFoundError, PermissionError, TypeError, RuntimeError) as critical:
                 if self.filedebug:
                     print(f"[LOAD-CRITICAL] {critical}")
-                if self.REPL == 0:
-                    self.cmd_exit()
 
             except Exception as unknown:
                 if self.filedebug:
                     print(f"[LOAD-UNKNOWN] Unexpected error:\n{unknown}")
                     if self.filedebug:
                         traceback.print_exc()
-                if self.REPL == 0:
-                    self.cmd_exit()
 
             finally:
                 if self.filedebug:
@@ -373,7 +369,6 @@ try:
                     print("[DEBUG] Skipping subsequent commands inside this IF block.")
         def evaluate_math_expression(self, expression):
             # Replace variables in the expression
-            expression = self.replace_variables(expression)
             try:
                 return eval(expression, {"__builtins__": {}}, {})
             except Exception as e:
@@ -386,20 +381,14 @@ try:
             """
             if not self.control_stack:
                 self.loaderrorcount+=1;raise Error("--ErrID78: ELSE without a matching IF.")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                return
+
             last_if = self.control_stack[-1]
             if last_if["type"] != "if":
                 self.loaderrorcount+=1;raise Error("--ErrID78: ELSE without a matching IF.")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                return
+
             if last_if.get("has_else", False):
                 self.loaderrorcount+=1;raise Error("--ErrID79: Multiple ELSE statements for the same IF.")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                return
+
             last_if["has_else"] = True
             last_if["executed"] = not last_if["executed"]
             if self.ctrflwdebug:
@@ -429,9 +418,7 @@ try:
                     executed = self.eval_condition(condition)
                 except ValueError as e:
                     self.loaderrorcount+=1;raise Error(f"--ErrID90: Invalid WHILE condition '{condition}'. Details: {e}")
-                    if self.REPL == 0:
-                        self.cmd_exit()
-                    return
+
 
             self.control_stack.append({
                 "type": "while",
@@ -450,9 +437,6 @@ try:
             """
             if not self.control_stack:
                 self.loaderrorcount+=1;raise Error("--ErrID91: 'end' without matching control block.")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                return
 
             block = self.control_stack.pop()
             debug = self.ctrflwdebug
@@ -468,9 +452,6 @@ try:
                         condition_still_true = self.eval_condition(block["condition"])
                     except Exception as e:
                         self.loaderrorcount+=1;raise Error(f"--ErrID92: WHILE condition failed at END. Details: {e}")
-                        if self.REPL == 0:
-                            self.cmd_exit()
-                        return
 
                     if condition_still_true:
                         if debug:
@@ -491,9 +472,6 @@ try:
 
             else:
                 self.loaderrorcount+=1;raise Error(f"--ErrID93: Unknown control block type '{block_type}' during END.")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                return
 
             self.execution_state = (
                 self.control_stack[-1]["executed"]
@@ -522,7 +500,7 @@ try:
                     return False
 
             return True 
-        def replace_variables(self, text):
+        def replace_variables(self, text, quoted=None):
             text = self.replace_additional_parameters(text)
 
             def func_replacer(match):
@@ -542,14 +520,20 @@ try:
                 if var_name in self.local_variables:
                     return str(self.local_variables[var_name][0])
                 elif var_name in self.variables:
-                    return str(self.variables[var_name][0])
+                    val = self.variables[var_name][0]
+                    if isinstance(val, str):
+                        if quoted:
+                            return f'"{val}"'
+                        else:
+                            return val
+                    return str(val)
+
                 else:
                     return f"<UNDEFINED:{var_name}>"
 
             return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", var_replacer, text)
 
         def eval_condition(self, condition_str):
-            condition_str = self.replace_variables(condition_str) 
             if self.conddebug:
                 print(f"[DEBUG] Evaluating condition: {condition_str}")
 
@@ -574,7 +558,7 @@ try:
                     return val
                 except ValueError:
                     debug(f"Interpreting token {token} as string {token!r}")
-                    return token
+                    return token   # ← this is the problem
 
             def compare_values(left, op, right):
                 debug(f"Comparing {left!r} {op} {right!r}")
@@ -744,7 +728,6 @@ try:
                         settings["log_message"] = True
 
                     # Variable interpolation
-                    args = self.replace_variables(args)
 
                     # Apply case transformations
                     if settings["case"] == "upper":
@@ -818,8 +801,7 @@ try:
                 
 
                 except Exception as e:
-                    print(f"[Unrecognised Error] Unexpected error in prt command. Details: {e}")
-                    self.cmd_exit()
+                    raise Error(f"[Unrecognised Error] Unexpected error in prt command. Details: {e}")
 
                     
                         
@@ -842,11 +824,10 @@ try:
 
 
         def cmd_create_file(self, args):
-            args = self.replace_variables(args)
             parts = shlex.split(args)
             if len(parts) < 2:
                 self.loaderrorcount += 1
-                print("--ErrID50: Missing filename or content for create_file command.")
+                raise Error("--ErrID50: Missing filename or content for create_file command.")
                
                 return
 
@@ -857,11 +838,10 @@ try:
             print(f"File '{filename}' created successfully.")
 
         def cmd_append_file(self, args):
-            args = self.replace_variables(args)
             parts = shlex.split(args)
             if len(parts) < 2:
                 self.loaderrorcount += 1
-                print("--ErrID55: Missing filename or content for append_file command.")
+                raise Error("--ErrID55: Missing filename or content for append_file command.")
                
                 return
 
@@ -904,8 +884,7 @@ try:
                
 
             except Exception as e:
-                print(f"[Unrecognised Error] Failed to read file. Error: {e}")
-                self.cmd_exit()
+                raise Error(f"[Unrecognised Error] Failed to read file. Error: {e}")
 
         def fetch_data_from_api(self, url=None, timeout=20):
             install_package("requests")
@@ -934,9 +913,8 @@ try:
                 if self.reqdebug:
                     print(f"[DEBUG] Data fetched and stored in output: {self.output}")
             except requests.exceptions.RequestException as e:
-                print(f"[Unrecognised Error] Failed to fetch data from API. Error: {e}")
-                self.output = None
-                self.cmd_exit()
+                raise Error(f"[Unrecognised Error] Failed to fetch data from API. Error: {e}")
+
 
         def store_variable(self, var_name, value, data_type, local=False):
             target = self.local_variables if local else self.variables
@@ -983,7 +961,10 @@ try:
 
             if not is_prt and "//" in args:
                 args = self.comment_strip(args)
-
+            if cmd in ("if", "while"):
+                args=self.replace_variables(args, True)
+            else:
+                args=self.replace_variables(args, False)
             if not self.should_execute():
                 control_flow_commands = {"else", "end", "while", "if"}
                 if cmd in control_flow_commands:
@@ -1182,8 +1163,6 @@ try:
                             result = "None"
                     else:
                         #self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' not defined.")
-                        #if self.REPL == 0: self.cmd_exit()
-                        #result="None"
                         continue
                 except AttributeError:
                     self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' not defined.")
@@ -1261,16 +1240,13 @@ try:
                     # For strings, add quotes
                     return f'"{val}"' if isinstance(val, str) and not val.replace(".", "", 1).isdigit() else str(val)
 
-                var_value = re.sub(r'\$([a-zA-Z_]\w*)', var_replacer, var_value_raw)
-                var_value = self.replace_variables(var_value)
+                var_value = var_value_raw
 
-                if var_type in ["int", "float", "str"]:
-                    var_value = self.replace_variables(var_value)  # <<< THIS
                 if self.mathdebug:
                     print(f"[DEBUG] After substitution: '{var_value}'")
                 # Evaluate math expressions for numeric types
                 if var_type in ["int", "float"]:
-                    var_value = self.replace_variables(var_value).strip()
+                    var_value = var_value.strip()
                     try:
                         if var_type == "int":
                             final_value = int(eval(var_value, {"__builtins__": {}}, {}))
@@ -1280,12 +1256,7 @@ try:
                         raise Error(f"Invalid {var_type} value: {var_value}")
 
                 else:
-                    # For strings, remove surrounding quotes if needed
-                    if var_value.startswith('"') and var_value.endswith('"'):
-                        final_value = var_value[1:-1]
-                    else:
-                        final_value = var_value  # raw value fallback
-
+                        final_value = eval(var_value)
             except Exception as e:
                 self.loaderrorcount+=1;raise Error(f"--ErrID84: Failed to evaluate variable '{var_name}': {e}")
                
@@ -1306,72 +1277,63 @@ try:
             Deletes a specified file.
             Syntax: del_file filename
             """
-            args = self.replace_variables(args).strip()
+            args = args.strip()
             filename = args
             try:
                 os.remove(filename)
                 print(f"File '{filename}' deleted successfully.")
             except FileNotFoundError:
                 self.loaderrorcount += 1
-                print(f"--ErrID57: File '{filename}' not found.")
-                if self.REPL == 0:
-                    self.cmd_exit()
+                raise Error(f"--ErrID57: File '{filename}' not found.")
+
             except PermissionError:
                 self.loaderrorcount += 1
-                print(f"--ErrID57P: Permission denied when deleting '{filename}'.")
-                if self.REPL == 0:
-                    self.cmd_exit()
+                raise Error(f"--ErrID57P: Permission denied when deleting '{filename}'.")
+                
             except Exception as e:
-                print(f"[Unrecognised Error] Failed to delete file '{filename}'. Error: {e}")
-                self.cmd_exit()
+                raise Error(f"[Unrecognised Error] Failed to delete file '{filename}'. Error: {e}")
 
         def cmd_create_dir(self, args):
             """
             Creates a new directory.
             Syntax: create_dir directory_name
             """
-            args = self.replace_variables(args).strip()
+            args = args.strip()
             directory_name = args
             try:
                 os.makedirs(directory_name, exist_ok=True)
                 print(f"Directory '{directory_name}' created successfully.")
             except PermissionError:
                 self.loaderrorcount += 1
-                print(f"--ErrID58P: Permission denied when creating '{directory_name}'.")
-                if self.REPL == 0:
-                    self.cmd_exit()
+                raise Error(f"--ErrID58P: Permission denied when creating '{directory_name}'.")
+
             except Exception as e:
-                print(f"[Unrecognised Error] Failed to create directory '{directory_name}'. Error: {e}")
-                self.cmd_exit()
+                raise Error(f"[Unrecognised Error] Failed to create directory '{directory_name}'. Error: {e}")
 
         def cmd_delete_dir(self, args):
             """
             Deletes an empty directory.
             Syntax: delete_dir directory_name
             """
-            args = self.replace_variables(args).strip()
+            args = args.strip()
             directory_name = args
             try:
                 os.rmdir(directory_name)
                 print(f"Directory '{directory_name}' deleted successfully.")
             except FileNotFoundError:
                 self.loaderrorcount += 1
-                print(f"--ErrID60: Directory '{directory_name}' not found.")
-                if self.REPL == 0:
-                    self.cmd_exit()
+                raise Error(f"--ErrID60: Directory '{directory_name}' not found.")
+
             except OSError:
                 self.loaderrorcount += 1
-                print(f"--ErrID61: Directory '{directory_name}' is not empty.")
-                if self.REPL == 0:
-                    self.cmd_exit()
+                raise Error(f"--ErrID61: Directory '{directory_name}' is not empty.")
+
             except PermissionError:
                 self.loaderrorcount += 1
-                print(f"--ErrID60P: Permission denied when deleting '{directory_name}'.")
-                if self.REPL == 0:
-                    self.cmd_exit()
+                raise Error(f"--ErrID60P: Permission denied when deleting '{directory_name}'.")
+
             except Exception as e:
-                print(f"[Unrecognised Error] Failed to delete directory '{directory_name}'. Error: {e}")
-                self.cmd_exit()
+                raise Error(f"[Unrecognised Error] Failed to delete directory '{directory_name}'. Error: {e}")
 
         def cmd_search_file(self, args):
             """
@@ -1380,14 +1342,11 @@ try:
             Supports: variables, spaces in keywords, UTF-8 files
             """
             try:
-                args = self.replace_variables(args)
                 parts = shlex.split(args)  # handles quotes & spaces
                 if len(parts) < 2:
                     self.loaderrorcount += 1
-                    print("--ErrID63: Missing filename or keyword for search_file command.")
-                    if self.REPL == 0:
-                        self.cmd_exit()
-                    return
+                    raise Error("--ErrID63: Missing filename or keyword for search_file command.")
+
 
                 filename, keyword = parts[0], parts[1]
                 with open(filename, 'r', encoding='utf-8', errors='replace') as f:
@@ -1402,12 +1361,10 @@ try:
                     print(f"No matches found for '{keyword}' in '{filename}'.")
             except FileNotFoundError:
                 self.loaderrorcount += 1
-                print(f"--ErrID64: File '{filename}' not found.")
-                if self.REPL == 0:
-                    self.cmd_exit()
+                raise Error(f"--ErrID64: File '{filename}' not found.")
+
             except Exception as e:
-                print(f"[Unrecognised Error] Failed to search file. Error: {e}")
-                self.cmd_exit()
+                raise Error(f"[Unrecognised Error] Failed to search file. Error: {e}")
 
         def cmd_sys_info(self, args):
             """
@@ -1497,9 +1454,8 @@ try:
                 if self.control_stack and self.control_stack[-1]["type"] == "try":
                     self.control_stack[-1]["error"] = error_message
                 else:
-                    print(f"{error_message}")
-                    if self.REPL == 0: 
-                        self.cmd_exit("Exiting due to error in inp command.")
+                    raise Error(f"[Unrecognised Error] {error_message}")
+
         def cmd_fetch(self, args):
             if len(args) < 1:
                 self.loaderrorcount+=1;raise Error("--ErrID3: Incorrect number of arguments for fetch command")
@@ -1534,7 +1490,7 @@ try:
                 print(f"[DEBUG] Return triggered with value: {args}")
             
             self.return_flag = True
-            self.return_value = self.replace_variables(args)
+            self.return_value =args
 
         def cmd_def(self, args):
             """
@@ -1689,9 +1645,6 @@ try:
             """Increment a registered integer variable."""
             if len(args) != 1:
                 self.loaderrorcount+=1;raise Error("--ErrID03: INC requires exactly one argument (variable name).")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                return
 
             var_name = args[0]
             var_data = self.variables.get(var_name)
@@ -1704,17 +1657,11 @@ try:
                     print(f"[DEBUG] INC: {var_name} incremented to {new_value}")
             else:
                 self.loaderrorcount+=1;raise Error(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
-                if self.REPL == 0:
-                    self.cmd_exit()
-
 
         def cmd_dec(self, args):
             """Decrement a registered integer variable."""
             if len(args) != 1:
                 self.loaderrorcount+=1;raise Error("--ErrID03: DEC requires exactly one argument (variable name).")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                return
 
             var_name = args[0]
             var_data = self.variables.get(var_name)
@@ -1726,9 +1673,7 @@ try:
                     print(f"[DEBUG] DEC: {var_name} decremented to {new_value}")
             else:
                 self.loaderrorcount+=1;raise Error(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
-                if self.REPL == 0:
-                    self.cmd_exit()
-                    
+
         def cmd_wait(self, args):
             """Wait for a specified number of seconds."""
             try:
@@ -1774,7 +1719,7 @@ try:
                    
 
             except Exception as e:
-                print(f"[Unrecognised Error] Failed to calculate square root. Error: {e}")
+                raise Error(f"[Unrecognised Error] Failed to calculate square root. Error: {e}")
                 self.cmd_exit()
 
         def cmd_fastmath(self,a):x,e=a.split('=',1);r=eval(e,{'__builtins__':None,'math':math},{k:self.variables[k][0]for k in self.variables});self.variables[x.strip()]=[r,'float'if type(r) is float else'int']
@@ -1836,6 +1781,7 @@ try:
                 except ValueError:
                     raise TypeError("Operands must be numeric.")
                 operations = {
+                    
                     "add": lambda x, y: x + y,
                     "sub": lambda x, y: x - y,
                     "mul": lambda x, y: x * y,
@@ -1858,9 +1804,7 @@ try:
                     print(f"[DEBUG] {operation.upper()}: {operand1} {operation} {operand2} = {result} (stored as {result_type} in '{var_name}')")
 
             except Exception as e:
-                print(f"[ERROR] {e}")
-                if self.REPL == 0: 
-                    self.cmd_exit()
+                raise Error(f"[Unrecognised Error] {e}")
 
         def try_convert(self, value):
             try:
@@ -1986,7 +1930,7 @@ try:
                     self.loaderrorcount+=1;raise Error(f"--ErrID76: Invalid line number '{line_number}'. Must be an integer.")
                    
                 except Exception as e:
-                    print(f"[Unrecognised Error]: '{e}'")    
+                    raise Error(f"[Unrecognised Error]: '{e}'")    
             else:
                 print(f"[DEBUG] GOTO command is not available in REPL mode.")
     def main():
@@ -2012,7 +1956,7 @@ try:
                             interpreter.current_line += 1  # Move to the next line unless `goto` changes it (i hope this doesnt breaks anything)
 
                 except Exception as exc:
-                    print(f"[Unrecognised Error] Could not load {args.file} due to reason:{exc}")  
+                    raise Error(f"[Unrecognised Error] Could not load {args.file} due to reason:{exc}")  
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting")
 
