@@ -416,6 +416,7 @@ try:
             else:
                 try:
                     executed = self.eval_condition(condition)
+
                 except ValueError as e:
                     self.loaderrorcount+=1;raise Error(f"--ErrID90: Invalid WHILE condition '{condition}'. Details: {e}")
 
@@ -449,7 +450,7 @@ try:
                 # Only evaluate loop again if it was actually active
                 if block["executed"]:
                     try:
-                        condition_still_true = self.eval_condition(block["condition"])
+                        condition_still_true = self.eval_condition(self.replace_variables(block["condition"]))
                     except Exception as e:
                         self.loaderrorcount+=1;raise Error(f"--ErrID92: WHILE condition failed at END. Details: {e}")
 
@@ -534,6 +535,7 @@ try:
             return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", var_replacer, text)
 
         def eval_condition(self, condition_str):
+            condition_str = self.replace_variables(condition_str, quoted=True)  # Replace variables in the condition
             if self.conddebug:
                 print(f"[DEBUG] Evaluating condition: {condition_str}")
 
@@ -961,10 +963,12 @@ try:
 
             if not is_prt and "//" in args:
                 args = self.comment_strip(args)
-            if cmd in ("if", "while"):
+            if cmd in ("if"):
                 args=self.replace_variables(args, True)
             else:
-                args=self.replace_variables(args, False)
+                if not cmd == "while":
+                    args = self.replace_variables(args)
+                
             if not self.should_execute():
                 control_flow_commands = {"else", "end", "while", "if"}
                 if cmd in control_flow_commands:
@@ -1239,24 +1243,27 @@ try:
 
                     # For strings, add quotes
                     return f'"{val}"' if isinstance(val, str) and not val.replace(".", "", 1).isdigit() else str(val)
-
-                var_value = var_value_raw
-
+                try:
+                    var_value = eval(var_value_raw)
+                except:
+                    ...
                 if self.mathdebug:
                     print(f"[DEBUG] After substitution: '{var_value}'")
                 # Evaluate math expressions for numeric types
                 if var_type in ["int", "float"]:
-                    var_value = var_value.strip()
                     try:
                         if var_type == "int":
-                            final_value = int(eval(var_value, {"__builtins__": {}}, {}))
+                            final_value = int(var_value)
                         else:  # float
-                            final_value = float(eval(var_value, {"__builtins__": {}}, {}))
+                            final_value = float(var_value)
                     except Exception:
                         raise Error(f"Invalid {var_type} value: {var_value}")
 
                 else:
+                    try:
                         final_value = eval(var_value)
+                    except:
+                        final_value=var_value        
             except Exception as e:
                 self.loaderrorcount+=1;raise Error(f"--ErrID84: Failed to evaluate variable '{var_name}': {e}")
                
