@@ -1,22 +1,38 @@
-reg str MODE "0"
+reg int MODE 0
 prt "+-------------------SELECT MODE--------------------+"
 prt "|##################################################|"
 prt "|0: Legacy Mode------------------------------------|"
 prt "|1: Disabled Print---------------------------------|"
-prt "|2: Debug Mode-------------------------------------|"
+prt "|2: Disabled All Output----------------------------|"
+prt "|3: Debug Mode-------------------------------------|"
+prt "|4: Disabled All Debug Output----------------------|"
 prt "|##################################################|"
 prt "+--------------------------------------------------+"
 
-inp MODE "Please Select Mode(0-2)" 0
+inp MODE "Please Select Mode(0-4)" 0
 if $MODE == 1
     prt "Disbaled All Print Commands" border=0
     setclientrule disableprt
 else
     if $MODE == 2
-        prt "Debug Mode Enabled" border=0
-        dev.debug All
+        prt "Disabled All Output" border=0
+        setclientrule disableprt
+        reg int disabledebug 1
     else
-        prt "Legacy Mode Selected" border=0
+        if $MODE == 3
+            prt "Debug Mode Enabled" border=0
+            dev.debug All
+        else
+            if $MODE == 4
+                prt "Disabled All Debug Output" border=0
+                reg int disabledebug 1
+            else
+                if $MODE != 0
+                    prt "Invalid Mode Selected, Defaulting to Legacy Mode" border=~
+                    prt "Legacy Mode Selected" border=0
+                end
+            end
+        end
     end
 end
 // --- Variable Registration and Math ---
@@ -141,18 +157,31 @@ prt "END OF SYSTEM INFO AND ENVIRONMENT TEST"border=:
 prt "WAIT AND DEV DEBUG TEST"border=:
 if $MODE == 2
 else
-    dev.debug All
+    if $disabledebug == 1
+    else
+        prt "Re-enabling debug output for wait test" border=:
+        dev.debug All
+    end
 end
+
 reg int waitcountstart ##timestamp
 wait 1
 reg int waitcountstop ##timestamp
+
 reg int waittotal $waitcountstop-$waitcountstart
 prt "execution waited for $waittotal seconds (should be ≈1)"
 prt "END OF WAIT AND DEV DEBUG TEST"border=:
 if $MODE == 2
     prt " "
 else
-    dev.debug None
+end
+if $disabledebug == 1
+    prt "Debug output remains disabled" border=:
+else
+    if $MODE !=3
+        prt "Disabling debug output after wait test" border=:
+        dev.debug None
+    end
 end
 
 prt "INT FLOAT STRING EVALUATION TEST"border=:
@@ -375,7 +404,17 @@ prt "END OF X3 FINAL EVALUATION STEPS" border=:
 // --- End of X3 FINAL EVALUATION STEPS ---
 prt "TOTAL X3 EVALUATION COMPLETE" border=0
 // --- End of X3 EVALUATION COMPLETE ---
+if $disabledebug == 1
+    prt "Debug output remains disabled" border=:
+else
+    prt "Enabling debug output after all tests" border=:
+    dev.debug All
+end
 if $MODE == 1
+    setclientrule disableprt
+else
+end
+if $MODE == 2
     setclientrule disableprt
 else
 end
@@ -386,8 +425,10 @@ reg str bar "█"
 
 prt $bar$bar$bar END OF LANGUAGE EVALUATION $bar$bar$bar border=@#~*!%=+
 
+
+reg int TIMESTOP ##msec
+reg int elapsed_time ($TIMESTOP - $TIMESTART)-$waittotal*1000
+
 reg str status "SUCCESS"
 prt "Status: $status" border=#
-reg int TIMESTOP ##msec
-reg int elapsed_time ($TIMESTOP - $TIMESTART)
 prt "Total execution time: $elapsed_time ms" border=0 align=right
