@@ -8,8 +8,14 @@ prt "|3: Debug Mode-------------------------------------|"
 prt "|4: Disabled All Debug Output----------------------|"
 prt "|##################################################|"
 prt "+--------------------------------------------------+"
-
+reg str disabledebug "init"
+prt "Type X to exit"
 inp MODE "Please Select Mode(0-4)" 0
+prt "Selected Mode: $MODE" border=0
+if $MODE == "X" or $MODE == "x"
+    prt "Exiting Syntax Evaluation Utility..."
+    exit 0
+end
 if $MODE == 1
     prt "Disbaled All Print Commands" border=0
     setclientrule disableprt
@@ -22,6 +28,7 @@ else
         if $MODE == 3
             prt "Debug Mode Enabled" border=0
             dev.debug All
+            reg int disabledebug 0
         else
             if $MODE == 4
                 prt "Disabled All Debug Output" border=0
@@ -81,12 +88,14 @@ def greet
 fncend
 
 call greet
+try
 if $functest == 1 and $functest2 == 2
     prt "LV TEST FAILED!" border=~
     prt "Expected: Fail, got: Success"
     exit 1
 else
     prt "Local variable test success!"
+end
 end
 prt "END OF LOCAL VARIABLE TEST"border=:
 
@@ -245,6 +254,7 @@ prt "END OF MULTIPLE CONDITIONS AND NESTED IF ELSE TEST"border=:
 // Invalid comparison (var doesn't exist)
 
 prt "INVALID COMPARISON TEST" border=:
+try
 if $notfound == 10
     prt "IC TEST FAILED!" border=~
     prt "Expected: Fail, got: Success"
@@ -252,7 +262,7 @@ if $notfound == 10
 else
     prt "Invalid comparison test success!"
 end
-
+end
 prt "END OF INVALID COMPARISON TEST"border=:
 prt x3 evaluation stage1 complete delay=0.025 border=0 case=upper
 
@@ -432,3 +442,13 @@ reg int elapsed_time ($TIMESTOP - $TIMESTART)-$waittotal*1000
 reg str status "SUCCESS"
 prt "Status: $status" border=#
 prt "Total execution time: $elapsed_time ms" border=0 align=right
+
+prt "Restart? (Y/N)" border=0 align=right
+reinit
+inp answer "" "Y"
+if $answer == "Y" or $answer == "y"
+    prt "Restarting Syntax Evaluation Utility..." border=0
+    goto 1
+else
+    prt "Exiting Syntax Evaluation Utility..." border=0
+end
