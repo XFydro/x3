@@ -1,10 +1,13 @@
 #this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
-#MintEclipse 0.3
+#MintEclipse 0.4
+#warning: this code is a mess, i know it, you know it, everyone knows it. but it works so ye TvT. -Raven
+#i will try to clean it up in future updates. -Raven
+
 from difflib import SequenceMatcher
 import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, struct
 #import cProfile
 REPL=0 #on default script mode.
-VERSION=3.93 #version (For IDE and more)
+VERSION=3.94 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     import sys
 
@@ -65,6 +68,7 @@ try:
             self.output:str = None #output for functions like fetch, i will think of improving this.
             self.log_messages:list = [] #old log messages record, still works but deprecated
             self.execution_state:dict = {} #thought of removing this but it is still used in some control flow magic so ye.
+            self.trystate:str = "False" #for checking whether the current block is in a try state or not. (had to make it a string because of setattr and getattr)
             self.return_flag:bool = False
             self.return_value:str = None
             self.loaderrorcount:int = 0 #load error count, used to track errors during file loading.
@@ -110,6 +114,7 @@ try:
                 'inp': self.cmd_inp,
                 'if': self.cmd_if,
                 'else': self.cmd_else,
+                'try': self.cmd_try,
                 'end': self.cmd_end,
                 'fetch': self.cmd_fetch,
                 'exit': self.cmd_exit,
@@ -170,6 +175,13 @@ try:
                     "-bold/white": "\033[1;97m",  # Bold bright white
                 }
             self.additional_parameters:dict = {
+                
+                "##interpreter:vars": lambda: list(self.variables.keys()),
+                "##interpreter:funcs": lambda: list(getattr(self, "functions", {}).keys()),
+                "##interpreter:memory": lambda: f"{round(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024, 2)} MB" if 'psutil' in globals() else "[psutil module not available]",
+                "##interpreter:platform": lambda: platform.platform(),
+                "##interpreter:eval": lambda x="": eval(x) if x else None,
+
                 "##random": lambda: random.random(),
                 "##randint": lambda: random.randint(0, 100),
                 "##timeseconds": lambda: time.time(),
@@ -194,6 +206,7 @@ try:
                 "##upper": lambda txt="": txt.upper(),
                 "##lower": lambda txt="": txt.lower(),
                 "##reverse": lambda txt="": txt[::-1],
+                "##length": lambda txt="": len(txt),
                 "##capitalize": lambda txt="": txt.capitalize(),
                 "##pingreport": lambda host="8.8.8.8": os.system(f"ping -n 1 {host}" if os.name == "nt" else f"ping -c 1 {host}") == 0,
                 "##ping": lambda host="8.8.8.8": (
@@ -219,12 +232,10 @@ try:
 
                 "##readfile": lambda path="": open(path, "r").read() if os.path.exists(path) else "[File not found]",#returns entire file content as an single string for some reason
 
-                "##interpreter:vars": lambda: list(self.variables.keys()),
-                "##interpreter:funcs": lambda: list(getattr(self, "functions", {}).keys()),
-                "##interpreter:memory": lambda: f"{round(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024, 2)} MB" if 'psutil' in globals() else "[psutil module not available]",
-                "##interpreter:platform": lambda: platform.platform(),
-            }
 
+            }
+        def raiseError(self, message):
+            raise Error(message)
         def setclientrule(self, args):
             allowed=['repl', 'fastmath', 'semo', 'pedl','disableprt']
             newargs=args.split(" ")
@@ -234,7 +245,7 @@ try:
                         setattr(self, newargs[i], True) if not getattr(self, newargs[i]) else setattr(self, newargs[i], False)
                         print(f"[DEBUG] Client rule '{newargs[i]}' set to {getattr(self, newargs[i])}.") if self.cmdhandlingdebug else None
                 else:
-                    raise Error(f"--ErrID103 Unknown client rule '{newargs[i]}'")
+                    self.raiseError(f"--ErrID106: Unknown client rule '{newargs[i]}'") if getattr(self, "trystate")=="False" else print(f"[WARNING] Unknown client rule '{newargs[i]}', ignored due to try block.")
                 if newargs[i]=="reset":
                     # Reset all rules to default (i hope my lazy ahh wont forget updating this part everytime new rules are added) #12.8.25
                     self.semo = False
@@ -242,7 +253,7 @@ try:
                     self.disableprt = False
                     print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
-            print(f'Running on version:{VERSION},MintEclipse 0.3')
+            print(f'Running on version:{VERSION},MintEclipse 0.4')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
 
         def flush(self):
@@ -347,6 +358,11 @@ try:
                 os.system('cls' if os.name == 'nt' else 'clear')
             else:
                 print("\n" * 100) #for terminals that dont support cls.
+        def cmd_try(self):
+            self.trystate = "True"
+            self.control_stack.append({"type": "try"})
+            if self.ctrflwdebug:
+                print(f"[DEBUG] Try pushed to stack.")
 
         def cmd_if(self, condition):
             """
@@ -356,7 +372,7 @@ try:
                 condition = self.replace_additional_parameters(condition)  # Replace any additional parameters like ##random, ##REPL, etc :3
                 result = self.eval_condition(condition)  # Pass the full condition as a single string
             except ValueError as e:
-                self.loaderrorcount+=1;raise Error(f"--ErrID77: Invalid IF condition '{condition}'. Details: {e}")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID77: Invalid IF condition '{condition}'. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid IF condition '{condition}'. Details: {e}, ignored due to try block.")
                
 
             # Push IF block to control stack (remains until `end`)
@@ -380,14 +396,14 @@ try:
             Execute an ELSE block only if the preceding IF block was false.
             """
             if not self.control_stack:
-                self.loaderrorcount+=1;raise Error("--ErrID78: ELSE without a matching IF.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID78: ELSE without a matching IF.")if getattr(self, "trystate")=="False" else print(f"[WARNING] ELSE without a matching IF, ignored due to try block.")
 
             last_if = self.control_stack[-1]
             if last_if["type"] != "if":
-                self.loaderrorcount+=1;raise Error("--ErrID78: ELSE without a matching IF.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID78: ELSE without a matching IF.")if getattr(self, "trystate")=="False" else print(f"[WARNING] ELSE without a matching IF, ignored due to try block.")
 
             if last_if.get("has_else", False):
-                self.loaderrorcount+=1;raise Error("--ErrID79: Multiple ELSE statements for the same IF.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID79: Multiple ELSE statements for the same IF.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Multiple ELSE statements for the same IF, ignored due to try block.")
 
             last_if["has_else"] = True
             last_if["executed"] = not last_if["executed"]
@@ -418,7 +434,7 @@ try:
                     executed = self.eval_condition(condition)
 
                 except ValueError as e:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID90: Invalid WHILE condition '{condition}'. Details: {e}")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID90: Invalid WHILE condition '{condition}'. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid WHILE condition '{condition}'. Details: {e}, ignored due to try block.")
 
 
             self.control_stack.append({
@@ -437,7 +453,7 @@ try:
             For 'while', it only loops if it was executed and the condition is still true.
             """
             if not self.control_stack:
-                self.loaderrorcount+=1;raise Error("--ErrID91: 'end' without matching control block.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID91: 'end' without matching control block.")if getattr(self, "trystate")=="False" else print(f"[WARNING] 'end' without matching control block, ignored due to try block.")
 
             block = self.control_stack.pop()
             debug = self.ctrflwdebug
@@ -452,7 +468,7 @@ try:
                     try:
                         condition_still_true = self.eval_condition(self.replace_variables(block["condition"]))
                     except Exception as e:
-                        self.loaderrorcount+=1;raise Error(f"--ErrID92: WHILE condition failed at END. Details: {e}")
+                        self.loaderrorcount+=1;self.raiseError(f"--ErrID92: WHILE condition failed at END. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] WHILE condition failed at END. Details: {e}, ignored due to try block.")
 
                     if condition_still_true:
                         if debug:
@@ -470,16 +486,12 @@ try:
             elif block_type in ("if", "else"):
                 if debug:
                     print(f"[DEBUG] Closing {block_type.upper()} block")
-
+            elif block_type =="try":
+                self.trystate="False"
+                if debug:
+                    print(f"[DEBUG] Closing TRY block")
             else:
-                self.loaderrorcount+=1;raise Error(f"--ErrID93: Unknown control block type '{block_type}' during END.")
-
-            self.execution_state = (
-                self.control_stack[-1]["executed"]
-                if self.control_stack else True
-            )
-
-
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID93: Unknown control block type '{block_type}' during END.") if getattr(self, "trystate")=="False" else print(f"[WARNING] Unknown control block type '{block_type}' during END.") #just realised this will never be triggered TwT #29.8.25
         def find_while_start(self, condition):
             """Finds the start of the while loop in the script."""
             '''i feel something is wrong with this but i dont know what'''
@@ -502,6 +514,8 @@ try:
 
             return True 
         def replace_variables(self, text, quoted=None):
+            if not self.should_execute():
+                return text  # Skip replacement if not executing
             text = self.replace_additional_parameters(text)
 
             def func_replacer(match):
@@ -530,7 +544,7 @@ try:
                     return str(val)
 
                 else:
-                    return f"<UNDEFINED:{var_name}>"
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID94: Variable '{var_name}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not defined, replaced with empty string due to try block.")
 
             return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", var_replacer, text)
 
@@ -694,7 +708,7 @@ try:
             """
             if not(self.disableprt):
                 if not raw_args:
-                    self.loaderrorcount+=1;raise Error("--ErrID37: No arguments provided for prt command.")
+                    self.loaderrorcount+=1;self.raiseError("--ErrID37: No arguments provided for prt command.")if getattr(self, "trystate")=="False" else print(f"[WARNING] No arguments provided for prt command, ignored due to try block.")
                 
                     return
                 # Default settings
@@ -799,11 +813,11 @@ try:
                         print("[DEBUG] Print Settings: ", settings)
 
                 except ValueError as e:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID38: Value error in prt command. Details: {e}")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID38: Value error in prt command. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Value error in prt command. Details: {e}, ignored due to try block.")
                 
 
                 except Exception as e:
-                    raise Error(f"[Unrecognised Error] Unexpected error in prt command. Details: {e}")
+                    self.raiseError(f"[Uncategorized Error] : {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Uncategorized Error : {e}, ignored due to try block.")
 
                     
                         
@@ -829,7 +843,7 @@ try:
             parts = shlex.split(args)
             if len(parts) < 2:
                 self.loaderrorcount += 1
-                raise Error("--ErrID50: Missing filename or content for create_file command.")
+                self.raiseError("--ErrID50: Missing filename or content for create_file command.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Missing filename or content for create_file command, ignored due to try block.")
                
                 return
 
@@ -843,7 +857,7 @@ try:
             parts = shlex.split(args)
             if len(parts) < 2:
                 self.loaderrorcount += 1
-                raise Error("--ErrID55: Missing filename or content for append_file command.")
+                self.raiseError("--ErrID55: Missing filename or content for append_file command.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Missing filename or content for append_file command, ignored due to try block.")
                
                 return
 
@@ -863,7 +877,7 @@ try:
 
             # Ensure the command has at least the required arguments
             if len(parts) < 2:
-                self.loaderrorcount+=1;raise Error("--ErrID52: Missing filename or variable name for read_file command.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID52: Missing filename or variable name for read_file command.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Missing filename or variable name for read_file command, ignored due to try block.")
                
 
                 return
@@ -882,17 +896,17 @@ try:
                 self.store_variable(var_name, content, "str")
                 print(f"File content stored in variable '{var_name}'.")
             except FileNotFoundError:
-                self.loaderrorcount+=1;raise Error(f"--ErrID53: File '{filename}' not found.")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID53: File '{filename}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] File '{filename}' not found, ignored due to try block.")
                
 
             except Exception as e:
-                raise Error(f"[Unrecognised Error] Failed to read file. Error: {e}")
+                self.raiseError(f"[Unrecognised Error] Failed to read file. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to read file. Error: {e}, ignored due to try block.")
 
         def fetch_data_from_api(self, url=None, timeout=20):
             install_package("requests")
             """Fetch data from a given API URL or from a variable in Var_Reg."""
             if not url:
-                self.loaderrorcount+=1;raise Error("--ErrID11: No URL or variable provided.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID11: No URL or variable provided.")if getattr(self, "trystate")=="False" else print(f"[WARNING] No URL or variable provided, ignored due to try block.")
                 self.output = None
                
 
@@ -902,7 +916,7 @@ try:
                 url = self.variables[url]
 
             if not isinstance(url, str) or not url.strip():
-                self.loaderrorcount+=1;raise Error("--ErrID12: Invalid URL or variable key provided.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID12: Invalid URL or variable key provided.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid URL or variable key provided, ignored due to try block.")
                 self.output = None
                
 
@@ -915,7 +929,7 @@ try:
                 if self.reqdebug:
                     print(f"[DEBUG] Data fetched and stored in output: {self.output}")
             except requests.exceptions.RequestException as e:
-                raise Error(f"[Unrecognised Error] Failed to fetch data from API. Error: {e}")
+                self.raiseError(f"[Unrecognised Error] Failed to fetch data from API. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to fetch data from API. Error: {e}, ignored due to try block.")
 
 
         def store_variable(self, var_name, value, data_type, local=False):
@@ -931,7 +945,7 @@ try:
             """Processes commands, handles function definitions, and executes appropriately."""
             # Early return for empty lines or comments
             if self.REPL == 1 and self.semo == True and not(("semo" in command) and ("setclientrule" in command)):
-                self.loaderrorcount+=1;raise Error("--ErrID72: Script Execution Mode Only (SEMO) is enabled. Cannot run commands.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID72: Script Execution Mode Only (SEMO) is enabled. Cannot run commands.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Script Execution Mode Only (SEMO) is enabled. Cannot run commands, ignored due to try block.")
             if not command or command.startswith(("//", "\\")):
                 return
             if "##" in command and not command.startswith("prt "):
@@ -970,11 +984,11 @@ try:
                     args = self.replace_variables(args)
                 
             if not self.should_execute():
-                control_flow_commands = {"else", "end", "while", "if"}
+                control_flow_commands = {"else", "end", "while", "if","try"}
                 if cmd in control_flow_commands:
                     if self.ctrflwdebug:
                         print(f"[DEBUG] Handling control command '{cmd}' even in inactive block")
-                    if cmd in {"else", "end"}:
+                    if cmd in {"else", "end","try"}:
                         self.command_mapping[cmd]()
                     else:
                         self.command_mapping[cmd](args)
@@ -987,7 +1001,7 @@ try:
                 if self.cmdhandlingdebug:
                     print(f"[DEBUG] Handling command: '{command}'")
 
-                no_arg_commands = {"else", "end", "dev.custom", "flush", "--info", "reinit", "fncend"}
+                no_arg_commands = {"else", "end", "dev.custom", "flush", "--info", "reinit", "fncend", "try"}
                 if cmd in no_arg_commands:
                     self.command_mapping[cmd]()
                 else:
@@ -996,7 +1010,7 @@ try:
                 if self.cmdhandlingdebug:
                     print(f"[DEBUG] Command '{cmd}' executed with args: '{args}'")
             else:
-                self.loaderrorcount+=1;raise Error(f"--ErrID73: Unrecognized command: {command}")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID73: Unrecognized command: {command}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognized command: {command}, ignored due to try block.")
 
         def dev(self, raw_args):
             """
@@ -1059,6 +1073,7 @@ try:
 
 
         """
+        Old but preserved for reference
         def cmd_try(self, args):
             self.control_stack.append({
                 "type": "try",
@@ -1067,30 +1082,8 @@ try:
             })
             self.cmd_log("[LOG] Entering try block")
         """
-        """
-        #DEPRECATED IN MintEclipse
-        def cmd_catch(self, args):
-            if not self.control_stack or self.control_stack[-1]["type"] != "try":
-                self.loaderrorcount+=1;raise Error("--ErrID35: 'catch' command outside of 'try' block")
-                self.cmd_exit("Exiting due to invalid catch command.")
-                return
 
-            current_try = self.control_stack[-1]
-            if current_try["error"]:
-                error_message = current_try["error"]
-                self.control_stack.pop()  # Pop the try block after handling
-                self.cmd_log(f"[LOG] Catching exception: {error_message}")
-                # Handle the catch block logic
-                # You can add custom behavior here (e.g., setting default values)
 
-                # Default action: set 'age' to 18 if an error occurred
-                self.store_variable("age", 18, "int")
-                self.cmd_log(f"[LOG] Defaulting age to 18")
-
-            else:
-                self.loaderrorcount+=1;raise Error("--ErrID36: No error to catch")
-                self.cmd_exit("Exiting due to invalid catch behavior.")
-        """
         def cmd_log(self, *args):
             """
             Logs messages or variable states for debugging.
@@ -1113,7 +1106,7 @@ try:
             """
             parts = args.split()
             if len(parts) != 2:
-                self.loaderrorcount+=1;raise Error("--ErrID70: Incorrect syntax for str_len. Expected: str_len var_name result_var")
+                self.loaderrorcount+=1;self.raiseError("--ErrID70: Incorrect syntax for str_len. Expected: str_len var_name result_var")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect syntax for str_len. Expected: str_len var_name result_var, ignored due to try block.")
             var_name, result_var = parts  
 
             if var_name in self.variables:
@@ -1124,10 +1117,10 @@ try:
                     if self.cmdhandlingdebug:
                         print(f"[DEBUG]Length of '{var_name}' stored in '{result_var}': {length}")
                 else:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID71: Variable '{var_name}' is not a string.")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID71: Variable '{var_name}' is not a string.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' is not a string, ignored due to try block.")
                    
 
-                self.loaderrorcount+=1;raise Error(f"--ErrID72: Variable '{var_name}' not found.")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID72: Variable '{var_name}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not found, ignored due to try block.")
                
         def similarity_percentage(self, str1, str2):
             similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
@@ -1141,7 +1134,8 @@ try:
                 - ##key:(argument)
                 - ##key:with:colons:(argument)
             """
-
+            if not self.should_execute():
+                return input_str
             if not isinstance(input_str, str):
                 return input_str
             if not "##" in input_str:
@@ -1154,31 +1148,25 @@ try:
                 func = self.additional_parameters.get(full_key)
                 arg_value = arg
 
-                #  Resolve $variables
-                if arg.startswith("$"):
-                    varname = arg[1:]
-                    arg_value = str(self.variables[varname][0]) if varname in self.variables else "<UNDEFINED>"
-
-                #  Safe function call with arg
+                if "$" in arg_value:
+                    arg_value = self.replace_variables(arg_value)
                 try:
                     if callable(func):
                         result = str(func(arg_value)) if arg_value.strip() else str(func())
                         if result is None:
                             result = "None"
                     else:
-                        #self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' not defined.")
+                        #self.loaderrorcount+=1;self.raiseError(f"--ErrID38: Function '{full_key}' not defined.")
                         continue
                 except AttributeError:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' not defined.")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID95: Function '{full_key}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{full_key}' not defined, ignored due to try block.")
                    
-                    result = "<UNDEFINED FUNCTION>"
                 except TypeError:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{full_key}' called with incorrect arguments.")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID96: Function '{full_key}' called with incorrect arguments.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{full_key}' called with incorrect arguments, ignored due to try block.")
                    
-                    result = "<TYPE ERROR>"
                 except Exception as e:
                     if self.cmdhandlingdebug:
-                        print(f"[DEBUG] Error calling function '{full_key}': {e}")
+                        print(f"[DEBUG] Error calling function '{full_key}' with args '{arg_value}': {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Error calling function '{full_key}' with args '{arg_value}': {e}, ignored due to try block.")
                     result = f"<CRITICAL ERROR>"
 
                 input_str = input_str.replace(f"{full_key}:({arg})", result)
@@ -1195,7 +1183,7 @@ try:
                     try:
                         result = str(func())
                         if result is None:
-                            result = f"<CRITICAL ERROR: {key} returned None>"
+                            self.loaderrorcount+=1;self.raiseError(f"--ErrID97: Function '{key}' did not return a value.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{key}' did not return a value, ignored due to try block.")
                     except Exception as e:
                         result = f"<CRITICAL ERROR: {e}>"
 
@@ -1204,81 +1192,63 @@ try:
             return input_str
 
         def cmd_reg(self, raw_args):
-            """
-            Registers a variable. Supports math expressions, string values, and variable substitution.
-            Syntax:
-                reg int varname 5
-                reg int varname $x * 2
-                reg int varname $x * $y
-                reg int varname "$string"
-            """
             raw_args = self.replace_additional_parameters(raw_args)
             parts = raw_args.strip().split()
-
             if len(parts) < 3:
-                self.loaderrorcount+=1;raise Error("--ErrID80: Invalid variable registration format.")
-               
-                return
+                self.loaderrorcount += 1
+                self.raiseError("--ErrID80: Invalid variable registration format.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid variable registration format, ignored due to try block.")
 
-            var_type = parts[0]   # int, float, str, etc.
-            var_name = parts[1]   # Variable name
-            var_value_raw = " ".join(parts[2:])  # The expression or literal value
+            var_type = parts[0]
+            var_name = parts[1]
+            var_value_raw = " ".join(parts[2:])
 
             if self.vardebug:
                 print(f"[DEBUG] Parsed Variable '{var_name}' of type '{var_type}' with value '{var_value_raw}'")
 
             try:
-
-
-                # Variable substitution
+                # substitute variables
                 def var_replacer(match):
                     var = match.group(1)
-                    val = None
+
                     if var in self.local_variables:
-                        val = self.local_variables[var][0]
+                        val, vtype = self.local_variables[var]
                     elif var in self.variables:
-                        val = self.variables[var][0]
+                        val, vtype = self.variables[var]
                     else:
-                        self.loaderrorcount+=1;raise Error(f"--ErrID38: Variable '${var}' not found.")
+                        self.loaderrorcount += 1
+                        self.raiseError(f"--ErrID94: Variable '${var}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '${var}' not defined, replaced with empty string due to try block.")
+                    if vtype == "str":
+                        return str(val)
+                    return str(val) if isinstance(val, (int, float)) else val
 
-                    # For strings, add quotes
-                    return f'"{val}"' if isinstance(val, str) and not val.replace(".", "", 1).isdigit() else str(val)
-                try:
-                    var_value = eval(var_value_raw)
-                except:
-                    ...
+                expr = re.sub(r'\$([a-zA-Z_]\w*)', var_replacer, var_value_raw)
+                expr = self.replace_variables(expr)
+
                 if self.mathdebug:
-                    print(f"[DEBUG] After substitution: '{var_value}'")
-                # Evaluate math expressions for numeric types
-                if var_type in ["int", "float"]:
-                    try:
-                        if var_type == "int":
-                            final_value = int(var_value)
-                        else:  # float
-                            final_value = float(var_value)
-                    except Exception:
-                        raise Error(f"Invalid {var_type} value: {var_value}")
+                    print(f"[DEBUG] Final expression to eval: '{expr}'")
 
+                # one eval for all types
+                evaluated = eval(expr, {"__builtins__": {}}, {})
+
+                if var_type == "int":
+                    final_value = int(evaluated)
+                elif var_type == "float":
+                    final_value = float(evaluated)
+                elif var_type == "str":
+                    final_value = str(evaluated)
                 else:
-                    try:
-                        final_value = eval(var_value)
-                    except:
-                        final_value=var_value        
-            except Exception as e:
-                self.loaderrorcount+=1;raise Error(f"--ErrID84: Failed to evaluate variable '{var_name}': {e}")
-               
-                return
+                    final_value = evaluated
 
-            # Store the value
+            except Exception as e:
+                self.loaderrorcount += 1
+                self.raiseError(f"--ErrID84: Failed to evaluate variable '{var_name}': {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Failed to evaluate variable '{var_name}': {e}, ignored due to try block.")
+
             if self.vardebug:
-                print(f"[DEBUG] Storing variable '{var_name}' = {final_value} (Type: {type(final_value).__name__}) in {'local' if self.in_function_definition else 'global'} scope")
+                print(f"[DEBUG] Storing variable '{var_name}' = {final_value} (Type: {type(final_value).__name__}) "
+                    f"in {'local' if self.in_function_definition else 'global'} scope")
 
             self.store_variable(var_name, final_value, var_type, local=self.local)
 
-
-
-            if self.vardebug:
-                print(f"[DEBUG] Registered variable '{var_name}' = {final_value} (Type: {var_type})")
         def cmd_delete_file(self, args):
             """
             Deletes a specified file.
@@ -1291,14 +1261,14 @@ try:
                 print(f"File '{filename}' deleted successfully.")
             except FileNotFoundError:
                 self.loaderrorcount += 1
-                raise Error(f"--ErrID57: File '{filename}' not found.")
+                self.raiseError(f"--ErrID57: File '{filename}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] File '{filename}' not found, ignored due to try block.")
 
             except PermissionError:
                 self.loaderrorcount += 1
-                raise Error(f"--ErrID57P: Permission denied when deleting '{filename}'.")
+                self.raiseError(f"--ErrID57P: Permission denied when deleting '{filename}'.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Permission denied when deleting '{filename}', ignored due to try block.")
                 
             except Exception as e:
-                raise Error(f"[Unrecognised Error] Failed to delete file '{filename}'. Error: {e}")
+                self.raiseError(f"[Unrecognised Error] Failed to delete file '{filename}'. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to delete file '{filename}'. Error: {e}, ignored due to try block.")
 
         def cmd_create_dir(self, args):
             """
@@ -1312,10 +1282,10 @@ try:
                 print(f"Directory '{directory_name}' created successfully.")
             except PermissionError:
                 self.loaderrorcount += 1
-                raise Error(f"--ErrID58P: Permission denied when creating '{directory_name}'.")
+                self.raiseError(f"--ErrID58P: Permission denied when creating '{directory_name}'.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Permission denied when creating '{directory_name}', ignored due to try block.")
 
             except Exception as e:
-                raise Error(f"[Unrecognised Error] Failed to create directory '{directory_name}'. Error: {e}")
+                self.raiseError(f"[Unrecognised Error] Failed to create directory '{directory_name}'. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to create directory '{directory_name}'. Error: {e}, ignored due to try block.")
 
         def cmd_delete_dir(self, args):
             """
@@ -1329,18 +1299,18 @@ try:
                 print(f"Directory '{directory_name}' deleted successfully.")
             except FileNotFoundError:
                 self.loaderrorcount += 1
-                raise Error(f"--ErrID60: Directory '{directory_name}' not found.")
+                self.raiseError(f"--ErrID60: Directory '{directory_name}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Directory '{directory_name}' not found, ignored due to try block.")
 
             except OSError:
                 self.loaderrorcount += 1
-                raise Error(f"--ErrID61: Directory '{directory_name}' is not empty.")
+                self.raiseError(f"--ErrID61: Directory '{directory_name}' is not empty.")if getattr(self, "trystate")=="False" else    print(f"[WARNING] Directory '{directory_name}' is not empty, ignored due to try block.")
 
             except PermissionError:
                 self.loaderrorcount += 1
-                raise Error(f"--ErrID60P: Permission denied when deleting '{directory_name}'.")
+                self.raiseError(f"--ErrID60P: Permission denied when deleting '{directory_name}'.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Permission denied when deleting '{directory_name}', ignored due to try block.")
 
             except Exception as e:
-                raise Error(f"[Unrecognised Error] Failed to delete directory '{directory_name}'. Error: {e}")
+                self.raiseError(f"[Unrecognised Error] Failed to delete directory '{directory_name}'. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to delete directory '{directory_name}'. Error: {e}, ignored due to try block.")
 
         def cmd_search_file(self, args):
             """
@@ -1352,7 +1322,7 @@ try:
                 parts = shlex.split(args)  # handles quotes & spaces
                 if len(parts) < 2:
                     self.loaderrorcount += 1
-                    raise Error("--ErrID63: Missing filename or keyword for search_file command.")
+                    self.raiseError("--ErrID63: Missing filename or keyword for search_file command.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Missing filename or keyword for search_file command, ignored due to try block.")
 
 
                 filename, keyword = parts[0], parts[1]
@@ -1368,10 +1338,10 @@ try:
                     print(f"No matches found for '{keyword}' in '{filename}'.")
             except FileNotFoundError:
                 self.loaderrorcount += 1
-                raise Error(f"--ErrID64: File '{filename}' not found.")
+                self.raiseError(f"--ErrID64: File '{filename}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] File '{filename}' not found, ignored due to try block.")
 
             except Exception as e:
-                raise Error(f"[Unrecognised Error] Failed to search file. Error: {e}")
+                self.raiseError(f"[Unrecognised Error] Failed to search file. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to search file. Error: {e}, ignored due to try block.")
 
         def cmd_sys_info(self, args):
             """
@@ -1449,7 +1419,7 @@ try:
                     value = float(user_input)
                     var_type = "float"
                 else:
-                    value = user_input
+                    value = f'"{user_input}"'
                     var_type = "str"
                 
                 # Store or update the variable
@@ -1461,11 +1431,11 @@ try:
                 if self.control_stack and self.control_stack[-1]["type"] == "try":
                     self.control_stack[-1]["error"] = error_message
                 else:
-                    raise Error(f"[Unrecognised Error] {error_message}")
+                    self.raiseError(f"[Unrecognised Error] {error_message}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: {error_message}, ignored due to try block.")
 
         def cmd_fetch(self, args):
             if len(args) < 1:
-                self.loaderrorcount+=1;raise Error("--ErrID3: Incorrect number of arguments for fetch command")
+                self.loaderrorcount+=1;self.raiseError("--ErrID3: Incorrect number of arguments for fetch command")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect number of arguments for fetch command, ignored due to try block.")
                
                 return
             url = args[0]
@@ -1479,7 +1449,7 @@ try:
                 print(f"[Exit]: {args}")
             if self.cmdhandlingdebug:    
                 print("[DEBUG] Exiting")
-            exit()  # Safely exits the script, or you can use other termination logic
+            exit()
 
 
         def log_debug(self, message):
@@ -1514,18 +1484,18 @@ try:
 
                 #Validate function name
                 if not tokens:
-                    self.loaderrorcount+=1;raise Error("--ErrID3: Missing function name. Usage: def function_name [params]")
+                    self.loaderrorcount+=1;self.raiseError("--ErrID103: Missing function name. Usage: def function_name [params]")if getattr(self, "trystate")=="False" else print(f"[WARNING] Missing function name. Usage: def function_name [params], ignored due to try block.")
                    
                     return
 
                 function_name = tokens[0]
                 if not function_name.isidentifier():
-                    self.loaderrorcount+=1;raise Error(f"--ErrID4: Invalid function name '{function_name}'. Must be a valid identifier.")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID4: Invalid function name '{function_name}'. Must be a valid identifier.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid function name '{function_name}'. Must be a valid identifier, ignored due to try block.")
                    
                     return
 
                 if function_name in self.functions:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID8: Function '{function_name}' is already defined.")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID8: Function '{function_name}' is already defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{function_name}' is already defined, ignored due to try block.")
                    
                     return
 
@@ -1543,7 +1513,7 @@ try:
                 self.in_function_definition = True
 
             except Exception as e:
-                raise Error(f"{e}")
+                self.raiseError(f"{e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] {e}, ignored due to try block.")
                
                 
         def cmd_fncend(self):
@@ -1551,7 +1521,7 @@ try:
             Marks the end of a function definition block.
             """
             if not getattr(self, "in_function_definition", False):
-                self.loaderrorcount+=1;raise Error("--ErrID9: 'fncend' used outside of a function definition.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID9: 'fncend' used outside of a function definition.")if getattr(self, "trystate")=="False" else print(f"[WARNING] 'fncend' used outside of a function definition, ignored due to try block.")
                
                 return
 
@@ -1577,12 +1547,12 @@ try:
             parts = shlex.split(args.strip(" "))
             parts=self._int_replacer(parts)
             if not parts:
-                self.loaderrorcount+=1;raise Error("--ErrID36: No function name specified in 'call'")
+                self.loaderrorcount+=1;self.raiseError("--ErrID36: No function name specified in 'call'")if getattr(self, "trystate")=="False" else print(f"[WARNING] No function name specified in 'call', ignored due to try block.")
   
 
             function_name = parts[0]
             if function_name not in self.functions:
-                self.loaderrorcount+=1;raise Error(f"--ErrID37: Function '{function_name}' not defined.")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID37: Function '{function_name}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{function_name}' not defined, ignored due to try block.")
 
 
             fnc = self.functions[function_name]
@@ -1592,7 +1562,7 @@ try:
 
             #Check parameter count
             if len(passed_args) != len(fnc_params):
-                self.loaderrorcount+=1;raise Error(f"--ErrID38: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID98: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}, ignored due to try block.")
                
                 return
             # Setup local variables
@@ -1618,12 +1588,12 @@ try:
         def cmd_switch(self, args):
             """Switch-case implementation."""
             if not args:
-                self.loaderrorcount+=1;raise Error("--ErrID3: Incorrect number of arguments for switch command")
+                self.loaderrorcount+=1;self.raiseError("--ErrID1: Incorrect number of arguments for switch command")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect number of arguments for switch command, ignored due to try block.")
                
 
             switch_var = args[0]
             if switch_var not in self.variables:
-                self.loaderrorcount+=1;raise Error(f"--ErrID31: Variable '{switch_var}' not defined.")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID31: Variable '{switch_var}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{switch_var}' not defined, ignored due to try block.")
                
 
             self.control_stack.append({"type": "switch", "variable": self.variables[switch_var][0], "executed": False})
@@ -1631,7 +1601,7 @@ try:
         def cmd_case(self, args):
             """Case block in a switch."""
             if not self.control_stack or self.control_stack[-1]["type"] != "switch":
-                self.loaderrorcount+=1;raise Error("--ErrID32: 'case' command outside of 'switch' block.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID32: 'case' command outside of 'switch' block.")if getattr(self, "trystate")=="False" else print(f"[WARNING] 'case' command outside of 'switch' block, ignored due to try block.")
                
 
             case_value = args[0]
@@ -1643,7 +1613,7 @@ try:
         def cmd_default(self, args):
             """Default block in a switch."""
             if not self.control_stack or self.control_stack[-1]["type"] != "switch":
-                self.loaderrorcount+=1;raise Error("--ErrID33: 'default' command outside of 'switch' block.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID33: 'default' command outside of 'switch' block.")if getattr(self, "trystate")=="False" else print(f"[WARNING] 'default' command outside of 'switch' block, ignored due to try block.")
                
 
             self.control_stack[-1]["default"] = args
@@ -1651,7 +1621,7 @@ try:
         def cmd_inc(self, args):
             """Increment a registered integer variable."""
             if len(args) != 1:
-                self.loaderrorcount+=1;raise Error("--ErrID03: INC requires exactly one argument (variable name).")
+                self.loaderrorcount+=1;self.raiseError("--ErrID03: INC requires exactly one argument (variable name).")if getattr(self, "trystate")=="False" else print(f"[WARNING] INC requires exactly one argument (variable name), ignored due to try block.")
 
             var_name = args[0]
             var_data = self.variables.get(var_name)
@@ -1663,12 +1633,12 @@ try:
                 if self.ctrflwdebug:
                     print(f"[DEBUG] INC: {var_name} incremented to {new_value}")
             else:
-                self.loaderrorcount+=1;raise Error(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' is not defined or not an integer, ignored due to try block.")
 
         def cmd_dec(self, args):
             """Decrement a registered integer variable."""
             if len(args) != 1:
-                self.loaderrorcount+=1;raise Error("--ErrID03: DEC requires exactly one argument (variable name).")
+                self.loaderrorcount+=1;self.raiseError("--ErrID03: DEC requires exactly one argument (variable name).")if getattr(self, "trystate")=="False" else print(f"[WARNING] DEC requires exactly one argument (variable name), ignored due to try block.")
 
             var_name = args[0]
             var_data = self.variables.get(var_name)
@@ -1679,7 +1649,7 @@ try:
                 if self.ctrflwdebug:
                     print(f"[DEBUG] DEC: {var_name} decremented to {new_value}")
             else:
-                self.loaderrorcount+=1;raise Error(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID34: Variable '{var_name}' is not defined or not an integer.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' is not defined or not an integer, ignored due to try block.")
 
         def cmd_wait(self, args):
             """Wait for a specified number of seconds."""
@@ -1688,7 +1658,7 @@ try:
                 self.log_debug(f"Waiting for {duration} seconds...")
                 time.sleep(duration)
             except ValueError:
-                self.loaderrorcount+=1;raise Error("--ErrID3: Duration must be an integer.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID2: Duration must be an integer.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Duration must be an integer, ignored due to try block.")
                
 
         def cmd_add(self, args):
@@ -1722,11 +1692,11 @@ try:
                     self.store_variable(f"{var_name}_sqrt", result, "float")
                     print(f"Square root of {value} stored in '{var_name}_sqrt'.")
                 else:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID66: Variable '{var_name}' not defined or not numeric.")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID66: Variable '{var_name}' not defined or not numeric.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not defined or not numeric, ignored due to try block.")
                    
 
             except Exception as e:
-                raise Error(f"[Unrecognised Error] Failed to calculate square root. Error: {e}")
+                self.raiseError(f"[Unrecognised Error] Failed to calculate square root. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to calculate square root. Error: {e}, ignored due to try block.")
                 self.cmd_exit()
 
         def cmd_fastmath(self,a):x,e=a.split('=',1);r=eval(e,{'__builtins__':None,'math':math},{k:self.variables[k][0]for k in self.variables});self.variables[x.strip()]=[r,'float'if type(r) is float else'int']
@@ -1811,7 +1781,7 @@ try:
                     print(f"[DEBUG] {operation.upper()}: {operand1} {operation} {operand2} = {result} (stored as {result_type} in '{var_name}')")
 
             except Exception as e:
-                raise Error(f"[Unrecognised Error] {e}")
+                self.raiseError(f"[Unrecognised Error] {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: {e}, ignored due to try block.")
 
         def try_convert(self, value):
             try:
@@ -1836,7 +1806,7 @@ try:
                 args = args.split(", ")
 
             if len(args) < 5:
-                self.loaderrorcount+=1;raise Error("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")
+                self.loaderrorcount+=1;self.raiseError("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName], ignored due to try block.")
                
                 return
 
@@ -1863,7 +1833,7 @@ try:
 
             # Extract remaining arguments
             if len(args) < 5:
-                self.loaderrorcount+=1;raise Error("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")
+                self.loaderrorcount+=1;self.raiseError("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName], ignored due to try block.")
                
 
                 return
@@ -1873,7 +1843,7 @@ try:
             try:
                 pos_x, pos_y, width, height = map(int, [pos_x, pos_y, width, height])
             except ValueError:
-                self.loaderrorcount+=1;raise Error("--ErrID101: Position and size parameters must be integers.")
+                self.loaderrorcount+=1;self.raiseError("--ErrID101: Position and size parameters must be integers.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Position and size parameters must be integers, ignored due to try block.")
                
 
                 return
@@ -1925,7 +1895,7 @@ try:
                 try:
                     target_line = int(line_number)
                     if target_line < 1 or target_line > len(self.script_lines):
-                        self.loaderrorcount+=1;raise Error(f"--ErrID75: Line {target_line} is out of range.")
+                        self.loaderrorcount+=1;self.raiseError(f"--ErrID75: Line {target_line} is out of range.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Line {target_line} is out of range, ignored due to try block.")
                        
 
                         return
@@ -1934,10 +1904,10 @@ try:
                         print(f"[DEBUG] Jumping to line {target_line}.")
 
                 except ValueError:
-                    self.loaderrorcount+=1;raise Error(f"--ErrID76: Invalid line number '{line_number}'. Must be an integer.")
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID76: Invalid line number '{line_number}'. Must be an integer.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid line number '{line_number}'. Must be an integer, ignored due to try block.")
                    
                 except Exception as e:
-                    raise Error(f"[Unrecognised Error]: '{e}'")    
+                    self.raiseError(f"[Unrecognised Error]: '{e}'")    if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: '{e}', ignored due to try block.")
             else:
                 print(f"[DEBUG] GOTO command is not available in REPL mode.")
     def main():
@@ -1963,7 +1933,7 @@ try:
                             interpreter.current_line += 1  # Move to the next line unless `goto` changes it (i hope this doesnt breaks anything)
 
                 except Exception as exc:
-                    raise Error(f"[Unrecognised Error] Could not load {args.file} due to reason:{exc}")  
+                    raise Error(f"[Unrecognised Error] Could not load {args.file} due to reason:{exc}")
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting")
 
