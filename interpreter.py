@@ -1419,7 +1419,7 @@ try:
                     value = float(user_input)
                     var_type = "float"
                 else:
-                    value = f'"{user_input}"'
+                    value = f'{user_input}'
                     var_type = "str"
                 
                 # Store or update the variable
