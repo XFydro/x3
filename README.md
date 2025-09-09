@@ -80,7 +80,7 @@ If you dont have the interpreter installed on PATH:
 ```bash
 python "C:/.../minteclipse.py" "-f" "script.x3"
 ```
-If you do have the interpreter installed on PATH (you can use our **[installer](https://github.com/XFydro/x3/blob/installer1.2/interpreter.py)** for that :3 )
+If you do have the interpreter installed on PATH (you can use our **[installer](https://github.com/XFydro/x3/releases/tag/installer1.5)** for that :3 )
 ```bash
 x3 -f "./script.x3"
 ```
