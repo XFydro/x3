@@ -1,7 +1,8 @@
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # ✈ Sardonix Interpreter ***(NEW)***
-> *"Lightweight as a feather, dumb as a rock"*
-> **Current Version:** `3.94` | **Project Phase:** Active development
+> *"Lightweight as a feather, dumb as a rock"*                       
+> **Current Version:** `3.94`      
+> **Project Phase:** Active development               
 
 ---
 
@@ -23,8 +24,9 @@ python "C:/.../sardonix.py" "-f" "script.x3"
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # 🌑 MintEclipse Interpreter
 
-> *"The only bug-free zone is your imagination. Good luck."*  
-> **Current Version:** `3.9x` | **Project Phase:** Active development (SUBJECT TO OTHER CONCURRENT ACTIVE PROJECTS)
+> *"The only bug-free zone is your imagination. Good luck."*                                    
+> **Current Version:** `3.9x`                                                                     
+> **Project Phase:** Active development (SUBJECT TO OTHER CONCURRENT ACTIVE PROJECTS)                       
 
 ---
 
