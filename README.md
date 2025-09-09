@@ -1,7 +1,30 @@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# ✈ Sardonix Interpreter ***(NEW)***
+> *"Lightweight as a feather, dumb as a rock"*
+> **Current Version:** `3.94` | **Project Phase:** Active development
+
+---
+
+## What's Sardonix??
+
+**Sardonix** is a lightweight and efficient(less beefy) version of **MintEclipse v3.94**, designed with medium level compatibility with v3.94, with a well defined abstract syntax tree and better tokenisation system.
+
+Built by **[Raven (formally known as XFydro)](https://x3documentation.neocities.org/developer)** with enthusiasm and insanity >:3.
+
+---
+## 🛠️ Usage
+
+### 💻 Run a Script
+```bash
+python "C:/.../sardonix.py" "-f" "script.x3"
+```
+
+---
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # 🌑 MintEclipse Interpreter
 
 > *"The only bug-free zone is your imagination. Good luck."*  
-> **Current Version:** `3.9` | **Project Phase:** Active development
+> **Current Version:** `3.9x` | **Project Phase:** Active development (SUBJECT TO OTHER CONCURRENT ACTIVE PROJECTS)
 
 ---
 
@@ -10,7 +33,7 @@
 **MintEclipse** is a custom-built interpreter designed for **X3-based scripting**, infused with enhanced control flow, dynamic variables, expression parsing, function definitions, and rich debugging capabilities.  
 It’s **modular, powerful, expressive**, and still evolving with each chaotic burst of passion. :3
 
-Built by **[Raven (formally known as XFydro)](https://x3documentation.neocities.org/developer)** with passion and 💖.
+Built by **[Raven (formally known as XFydro)](https://x3documentation.neocities.org/developer)** with passion and 💖. (ok i kinda lost my sanity over this so this point is straight up a lie. -Raven #10.9.25)
 
 ---
 
@@ -40,8 +63,7 @@ A beautiful, web-based editor created by a dear friend, supports X3!
 
 - Python **3.6+**
 - Internet access (for `fetch`, `##fetch:*`, and online packages)
-- Terminal that supports ANSI colors (optional but ✨ pretty ✨)
-- Patience... Python is slow af 🐌💤
+- A Patient mindset because no one knows what goes on in the python runtime.
 
 Required packages (auto-installed if not found):
 - `psutil`
