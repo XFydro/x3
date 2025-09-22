@@ -1,0 +1,63 @@
+// 3D sphere with proper frame buffering
+// requires arithmetic.x3
+load arithmetic.x3
+reg int WIDTH 80
+reg int HEIGHT 44
+reg float RADIUS 7.0
+reg float LIGHTX 15.0
+reg float LIGHTY 15.0
+reg float LIGHTZ -20
+reg float angle 0.0
+reg float DX (2.0 * $RADIUS / $WIDTH)
+reg float DY (2.0 * $RADIUS / $HEIGHT)
+while 1
+    reg str FRAME ""
+    reg float cosA ##cos:($angle)
+    reg float sinA ##sin:($angle)
+    reg int y 0
+    while $y < $HEIGHT
+        reg int x 0
+        reg str liney ""
+        while $x < $WIDTH
+            reg float nx ($x - $WIDTH / 2.0) * $DX
+            reg float ny ($y - $HEIGHT / 2.0) * $DY
+            reg float under ($RADIUS*$RADIUS - $nx*$nx - $ny*$ny)
+            if $under > 0
+                reg float nz ($under**0.5)
+                reg float rx ($nx * $cosA + $nz * $sinA)
+                reg float rz (-$nx * $sinA + $nz * $cosA)
+                reg float lx ($LIGHTX - $rx)
+                reg float ly ($LIGHTY - $ny)
+                reg float lz ($LIGHTZ - $rz)
+                reg float lmag (($lx*$lx + $ly*$ly + $lz*$lz)**0.5)
+                reg float ndotl (($rx*$lx + $ny*$ly + $rz*$lz) / ($RADIUS * $lmag))
+                reg float shade ($ndotl + 1.15)
+                reg str ch "-"
+                if $shade > 0
+                    reg str ch "="
+                end
+                if $shade > 0.2
+                    reg str ch "*"
+                end
+                if $shade > 0.4
+                    reg str ch "o"
+                end
+                if $shade > 0.65
+                    reg str ch "#"
+                end
+                if $shade > 0.85
+                    reg str ch "@"
+                end
+            else
+                reg str ch "-"
+            end
+            reg str liney "$liney$ch$ch"
+            reg int x $x + 1
+        end
+        reg str FRAME "$FRAME$liney\n"
+        reg int y $y + 1
+    end
+    cls
+    prt $FRAME
+    reg float angle $angle + 0.1
+end
