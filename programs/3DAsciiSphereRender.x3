@@ -39,8 +39,14 @@ while 1
                 reg float shade ($ndotl + 0.15)
 
                 reg str ch "-"
-                if $shade > 0.4
+                if $shade > 0
+                    reg str ch "="
+                end
+                if $shade > 0.2
                     reg str ch "*"
+                end
+                if $shade > 0.4
+                    reg str ch "o"
                 end
                 if $shade > 0.65
                     reg str ch "#"
@@ -48,9 +54,6 @@ while 1
                 if $shade > 0.85
                     reg str ch "@"
                 end
-            else
-                reg str ch "-"
-            end
 
             reg str liney "$liney$ch$ch"
             reg int x $x + 1
