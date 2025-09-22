@@ -796,7 +796,7 @@ try:
                     if settings["log_message"]:
                         self.log_messages.append(args)
                     args = self.replace_additional_parameters(args)
-
+                    args=self._decode_escapes(args)
                     # Handle output & animated printing with delay
                     if settings["delay"]:
                         import sys
@@ -835,7 +835,11 @@ try:
 
         def _decode_escapes(self, text):
             """Turn escape sequences like \\n into actual newlines."""
-            return text.encode('utf-8').decode('unicode_escape')
+            text = text.replace("\\r\\n", "\r\n")
+            text = text.replace("\\n", "\n")
+            text = text.replace("\\t", "\t")
+            text = text.replace("\\r", "\r")
+            return text
 
 
 
@@ -1194,9 +1198,6 @@ try:
         def cmd_reg(self, raw_args):
             raw_args = self.replace_additional_parameters(raw_args)
             parts = raw_args.strip().split()
-            if len(parts) < 3:
-                self.loaderrorcount += 1
-                self.raiseError("--ErrID80: Invalid variable registration format.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid variable registration format, ignored due to try block.")
 
             var_type = parts[0]
             var_name = parts[1]
@@ -1235,7 +1236,22 @@ try:
                 elif var_type == "float":
                     final_value = float(evaluated)
                 elif var_type == "str":
-                    final_value = str(evaluated)
+                    if (expr.startswith('"') and expr.endswith('"')) or (expr.startswith("'") and expr.endswith("'")):
+                        final_value = expr[1:-1]
+                    else:
+                        final_value = expr
+                #elif var_type == "list":
+                #    if isinstance(evaluated, list):
+                #        final_value = evaluated
+                #    else:
+                #        final_value = [evaluated]
+                elif var_type == "bool":
+                    if isinstance(evaluated, bool):
+                        final_value = evaluated
+                    elif isinstance(evaluated, str):
+                        final_value = evaluated.lower() in ("true", "1")
+                    else:
+                        final_value = bool(evaluated)
                 else:
                     final_value = evaluated
 
