@@ -1,4 +1,4 @@
-#this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
+#this software is licenced under MIT License, for more information check: https://github.com/XFydro/x3/blob/main/license.txt
 #MintEclipse 0.4
 #warning: this code is a mess, i know it, you know it, everyone knows it. but it works so ye TvT. -Raven
 #i will try to clean it up in future updates. -Raven
@@ -10,31 +10,23 @@ REPL=0 #on default script mode.
 VERSION=3.94 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     import sys
-
     try:
-        # Try importing the package
         module = importlib.import_module(package)
         if REPL==1:
             print(f"{package} is already installed.")
-    except ImportError:
-        # Install the package if not found
-        
+    except ImportError:        
         print(f"{package} not found. Installing...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-        
-        # Try importing again after installation
         try:
             module = importlib.import_module(package)
         except ImportError:
             print(f"Error: Failed to import {package} after installation.")
             return None
-
-    # Set alias if provided (eg:import {package} as alias)
     if alias:
         globals()[alias] = module
         print(f"Imported {package} as {alias}.")
     else:
-        globals()[package] = module  # Standard import
+        globals()[package] = module
 
     return module  
 install_package("psutil") #import psutil for memory usage and other system info.
@@ -101,7 +93,6 @@ try:
                 'delete_dir': self.cmd_delete_dir,
                 'search_file': self.cmd_search_file,
                 'sys_info': self.cmd_sys_info,
-                'str_len': self.str_len,
                 'reg': self.cmd_reg,
                 'prt': self.cmd_prt,
                 'fastmath': self.cmd_fastmath,
@@ -125,7 +116,6 @@ try:
                 'inc': self.cmd_inc,
                 'dec': self.cmd_dec,
                 'wait': self.cmd_wait,
-                'log': self.cmd_log,
                 'fncend': self.cmd_fncend,
                 'dev.debug': self.dev,
                 'load': self.load,
@@ -140,40 +130,40 @@ try:
                 " ",
             }
         
-            self.color_dict:dict = { #doesn't works anymore for some reason
-                    # Foreground Colors (Approx ROYGBIV)
-                    "-/red": "\033[91m",         # Bright red
-                    "-/orange": "\033[38;5;214m",  # Approximate orange (256 color mode)
-                    "-/yellow": "\033[93m",      # Bright yellow
-                    "-/green": "\033[92m",       # Bright green
-                    "-/blue": "\033[94m",        # Bright blue
-                    "-/indigo": "\033[38;5;57m",  # Approximate indigo (256 color mode)
-                    "-/violet": "\033[38;5;135m",  # Approximate violet (256 color mode)
-                    "-/cyan": "\033[96m",        # Bright cyan
-                    "-/white": "\033[97m",       # Bright white
-                    
-                    # Background Colors
-                    "-bg/red": "\033[41m",       # Red background
-                    "-bg/orange": "\033[48;5;214m",  # Orange background (256 color mode)
-                    "-bg/yellow": "\033[43m",    # Yellow background
-                    "-bg/green": "\033[42m",     # Green background
-                    "-bg/blue": "\033[44m",      # Blue background
-                    "-bg/indigo": "\033[48;5;57m",  # Indigo background (256 color mode)
-                    "-bg/violet": "\033[48;5;135m",  # Violet background (256 color mode)
-                    "-bg/cyan": "\033[46m",      # Cyan background
-                    "-bg/white": "\033[47m",     # White background
-                    
-                    # Bold Colors
-                    "-bold/red": "\033[1;91m",    # Bold bright red
-                    "-bold/orange": "\033[1;38;5;214m",  # Bold orange (256 color mode)
-                    "-bold/yellow": "\033[1;93m", # Bold bright yellow
-                    "-bold/green": "\033[1;92m",  # Bold bright green
-                    "-bold/blue": "\033[1;94m",   # Bold bright blue
-                    "-bold/indigo": "\033[1;38;5;57m",  # Bold indigo (256 color mode)
-                    "-bold/violet": "\033[1;38;5;135m",  # Bold violet (256 color mode)
-                    "-bold/cyan": "\033[1;96m",   # Bold bright cyan
-                    "-bold/white": "\033[1;97m",  # Bold bright white
-                }
+            #self.color_dict:dict = { #doesn't works anymore for some reason
+            #        # Foreground Colors (Approx ROYGBIV)
+            #        "-/red": "\033[91m",         # Bright red
+            #        "-/orange": "\033[38;5;214m",  # Approximate orange (256 color mode)
+            #        "-/yellow": "\033[93m",      # Bright yellow
+            #        "-/green": "\033[92m",       # Bright green
+            #        "-/blue": "\033[94m",        # Bright blue
+            #        "-/indigo": "\033[38;5;57m",  # Approximate indigo (256 color mode)
+            #        "-/violet": "\033[38;5;135m",  # Approximate violet (256 color mode)
+            #        "-/cyan": "\033[96m",        # Bright cyan
+            #        "-/white": "\033[97m",       # Bright white
+            #        
+            #       # Background Colors
+            #        "-bg/red": "\033[41m",       # Red background
+            #        "-bg/orange": "\033[48;5;214m",  # Orange background (256 color mode)
+            #        "-bg/yellow": "\033[43m",    # Yellow background
+            #        "-bg/green": "\033[42m",     # Green background
+            #        "-bg/blue": "\033[44m",      # Blue background
+            #        "-bg/indigo": "\033[48;5;57m",  # Indigo background (256 color mode)
+            #        "-bg/violet": "\033[48;5;135m",  # Violet background (256 color mode)
+            #        "-bg/cyan": "\033[46m",      # Cyan background
+            #        "-bg/white": "\033[47m",     # White background
+            #        
+            #        # Bold Colors
+            #        "-bold/red": "\033[1;91m",    # Bold bright red
+            #        "-bold/orange": "\033[1;38;5;214m",  # Bold orange (256 color mode)
+            #        "-bold/yellow": "\033[1;93m", # Bold bright yellow
+            #        "-bold/green": "\033[1;92m",  # Bold bright green
+            #        "-bold/blue": "\033[1;94m",   # Bold bright blue
+            #        "-bold/indigo": "\033[1;38;5;57m",  # Bold indigo (256 color mode)
+            #        "-bold/violet": "\033[1;38;5;135m",  # Bold violet (256 color mode)
+            #        "-bold/cyan": "\033[1;96m",   # Bold bright cyan
+            #        "-bold/white": "\033[1;97m",  # Bold bright white
+            #    }
             self.additional_parameters:dict = {
                 
                 "##interpreter:vars": lambda: list(self.variables.keys()),
@@ -192,7 +182,7 @@ try:
                 "##datetime:iso": lambda: datetime.datetime.now().isoformat(),
                 "##datetime:utc": lambda: datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 
-                "##REPL": lambda: self.REPL,  # Current interpreter state
+                "##REPL": lambda: self.REPL, 
                 "##uuid": lambda: str(uuid.uuid4()),
                 "##uuid:hex": lambda: uuid.uuid4().hex,
                 "##user": lambda: getpass.getuser(),
@@ -202,7 +192,7 @@ try:
                 "##cwd": lambda: os.getcwd(),
                 "##randbool": lambda: random.choice([True, False]),
                 "##msec": lambda: int(time.time() * 1000),
-                "##env": lambda key="": os.environ.get(key, "") if key else dict(os.environ),  # Use like `##env:PATH`
+                "##env": lambda key="": os.environ.get(key, "") if key else dict(os.environ),
                 "##upper": lambda txt="": txt.upper(),
                 "##lower": lambda txt="": txt.lower(),
                 "##reverse": lambda txt="": txt[::-1],
@@ -1076,55 +1066,58 @@ try:
                 print("[SELF-DEBUG] No valid debug options provided. Use 'dev All' to enable all.")
 
 
-        """
-        Old but preserved for reference
-        def cmd_try(self, args):
-            self.control_stack.append({
-                "type": "try",
-                "active": True,
-                "error": None
-            })
-            self.cmd_log("[LOG] Entering try block")
-        """
+        
+        #Old but preserved for reference
+        #def cmd_try(self, args):
+        #    self.control_stack.append({
+        #        "type": "try",
+        #        "active": True,
+        #        "error": None
+        #    })
+        #    self.cmd_log("[LOG] Entering try block")
+        
 
+        #random thingy that i forgot to remove during MintEclipse development #23.09.25#
+        #def cmd_log(self, *args):
+        #    """
+        #    Logs messages or variable states for debugging.
+        #    Accepts multiple arguments and concatenates them into a single log message.
 
-        def cmd_log(self, *args):
-            """
-            Logs messages or variable states for debugging.
-            Accepts multiple arguments and concatenates them into a single log message.
+        #    Args:
+        #        *args: Variable number of arguments to be logged.
+        #    """
+        #    # Join all arguments into a single string
+        #    message = " ".join(map(str, args))
 
-            Args:
-                *args: Variable number of arguments to be logged.
-            """
-            # Join all arguments into a single string
-            message = " ".join(map(str, args))
+        #    # Print to the console in debug mode
+        #    if self.debug:
+        #        print(f"[DEBUG] {message}")
+        #        self.debuglog.append(f"[DEBUG] {message}")
 
-            # Print to the console in debug mode
-            if self.debug:
-                print(f"[DEBUG] {message}")
-                self.debuglog.append(f"[DEBUG] {message}")
-        def str_len(self, args):
-            """
-            Returns the length of a string variable.
-            Syntax: str_len var_name result_var
-            """
-            parts = args.split()
-            if len(parts) != 2:
-                self.loaderrorcount+=1;self.raiseError("--ErrID70: Incorrect syntax for str_len. Expected: str_len var_name result_var")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect syntax for str_len. Expected: str_len var_name result_var, ignored due to try block.")
-            var_name, result_var = parts  
-
-            if var_name in self.variables:
-                value = self.variables[var_name][0]
-                if isinstance(value, str):
-                    length = len(value)
-                    self.store_variable(result_var, length, "int", local=self.local)
-                    if self.cmdhandlingdebug:
-                        print(f"[DEBUG]Length of '{var_name}' stored in '{result_var}': {length}")
-                else:
-                    self.loaderrorcount+=1;self.raiseError(f"--ErrID71: Variable '{var_name}' is not a string.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' is not a string, ignored due to try block.")
-                   
-
-                self.loaderrorcount+=1;self.raiseError(f"--ErrID72: Variable '{var_name}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not found, ignored due to try block.")
+        #old string length function, replaced with ##length:() #23.9.25#
+        #def str_len(self, args):
+        #    """
+        #    Returns the length of a string variable.
+        #    Syntax: str_len var_name result_var
+        #    """
+        #    parts = args.split()
+        #    if len(parts) != 2:
+        #        self.loaderrorcount+=1;self.raiseError("--ErrID70: Incorrect syntax for str_len. Expected: str_len var_name result_var")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect syntax for str_len. Expected: str_len var_name result_var, ignored due to try block.")
+        #    var_name, result_var = parts  
+        #
+        #    if var_name in self.variables:
+        #        value = self.variables[var_name][0]
+        #        if isinstance(value, str):
+        #            length = len(value)
+        #            self.store_variable(result_var, length, "int", local=self.local)
+        #            if self.cmdhandlingdebug:
+        #                print(f"[DEBUG]Length of '{var_name}' stored in '{result_var}': {length}")
+        #        else:
+        #            self.loaderrorcount+=1;self.raiseError(f"--ErrID71: Variable '{var_name}' is not a string.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' is not a string, ignored due to try block.")
+        #           
+        #
+        #
+        #        self.loaderrorcount+=1;self.raiseError(f"--ErrID72: Variable '{var_name}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not found, ignored due to try block.")
                
         def similarity_percentage(self, str1, str2):
             similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
@@ -1553,6 +1546,7 @@ try:
             Syntax:
                 call function_name [args...]
             """
+            
             self.local=True
             try:
                 args=int(args)
@@ -1564,7 +1558,7 @@ try:
             parts=self._int_replacer(parts)
             if not parts:
                 self.loaderrorcount+=1;self.raiseError("--ErrID36: No function name specified in 'call'")if getattr(self, "trystate")=="False" else print(f"[WARNING] No function name specified in 'call', ignored due to try block.")
-  
+
 
             function_name = parts[0]
             if function_name not in self.functions:
@@ -1579,7 +1573,7 @@ try:
             #Check parameter count
             if len(passed_args) != len(fnc_params):
                 self.loaderrorcount+=1;self.raiseError(f"--ErrID98: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}, ignored due to try block.")
-               
+            
                 return
             # Setup local variables
             self.local_variables = {}
@@ -1589,18 +1583,20 @@ try:
 
             if self.ctrflwdebug:
                 print(f"[DEBUG] Calling function '{function_name}' with arguments: {dict(zip(fnc_params, passed_args))}")
-
-            for command in fnc_body:
-                self.handle_command(command)
-                if self.return_flag:
-                    break
-            # Capture return and clear local scope
-            result = self.return_value
-            self.return_flag = False
-            self.return_value = None
-            self.local_variables = {}
-            self.local=False
-            return result
+            try:
+                for command in fnc_body:
+                    self.handle_command(command)
+                    if self.return_flag:
+                        break
+                # Capture return and clear local scope
+                result = self.return_value
+                self.return_flag = False
+                self.return_value = None
+                self.local_variables = {}
+                self.local=False
+                return result
+            except RecursionError:
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID99: Maximum recursion depth exceeded in function '{function_name}'.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Maximum recursion depth exceeded in function '{function_name}', ignored due to try block.")
         def cmd_switch(self, args):
             """Switch-case implementation."""
             if not args:
