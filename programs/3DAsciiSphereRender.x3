@@ -3,7 +3,7 @@
 load arithmetic.x3
 
 reg int WIDTH 80
-@@ -14,7 +14,8 @@ reg float DX (2.0 * $RADIUS / $WIDTH)
+reg float DX (2.0 * $RADIUS / $WIDTH)
 reg float DY (2.0 * $RADIUS / $HEIGHT)
 
 while 1
@@ -12,7 +12,7 @@ while 1
     reg float cosA ##cos:($angle)
     reg float sinA ##sin:($angle)
 
-@@ -26,7 +27,7 @@ while 1
+while 1
             reg float nx ($x - $WIDTH / 2.0) * $DX
             reg float ny ($y - $HEIGHT / 2.0) * $DY
             reg float under ($RADIUS*$RADIUS - $nx*$nx - $ny*$ny)
@@ -20,7 +20,7 @@ while 1
             if $under > 0
                 reg float nz ($under**0.5)
                 reg float rx ($nx * $cosA + $nz * $sinA)
-@@ -36,14 +37,14 @@ while 1
+while 1
                 reg float lz ($LIGHTZ - $rz)
                 reg float lmag (($lx*$lx + $ly*$ly + $lz*$lz)**0.5)
                 reg float ndotl (($rx*$lx + $ny*$ly + $rz*$lz) / ($RADIUS * $lmag))
@@ -35,7 +35,7 @@ while 1
                 end
                 if $shade > 0.4
                     reg str ch "o"
-@@ -52,15 +53,22 @@ while 1
+while 1
                     reg str ch "#"
                 end
                 if $shade > 0.85
