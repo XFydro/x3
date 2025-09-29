@@ -1,4 +1,4 @@
-#this software is licenced under MIT License, for more information check: https://github.com/XFydro/x3/blob/main/license.txt
+#this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
 #MintEclipse 0.4
 #warning: this code is a mess, i know it, you know it, everyone knows it. but it works so ye TvT. -Raven
 #i will try to clean it up in future updates. -Raven
@@ -7,7 +7,7 @@ from difflib import SequenceMatcher
 import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, struct
 #import cProfile
 REPL=0 #on default script mode.
-VERSION=3.94 #version (For IDE and more)
+VERSION=3.945 #version (For IDE and more)
 def install_package(package, alias=None): #package installation using subprocess.
     import sys
     try:
@@ -77,52 +77,54 @@ try:
             #---
             #Rules Init--
             self.semo:bool=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
-            self.pedl:bool=False #Prevent Execution During Load, to prevent the interpreter to run commands during file loading, primarily for modules.
-            self.disableprt:bool=False #Disable Print, to disable the print command.
+            self.pedl:bool=False #Prevent Execution During Load, to prevent the interpreter to run commands during file loading, primarily for modules, i completely forgot to actually implement this aaaaa #29.9.25-Raven.
+            self.disableprt:bool=False #Disable Print, to disable the print command, ok actually i have no idea why i made this TwT #29.9.25-Raven.
             #---
             self.command_mapping:dict = { 
-                'terminal': self.cmd_open_terminal,
-                'goto': self.cmd_goto,
-                'cls': self.cmd_clear,
-                'dev.debug': self.dev,
-                'w_file': self.cmd_create_file,
-                'r_file': self.cmd_read_file,
-                'a_file': self.cmd_append_file,           
-                'del_file': self.cmd_delete_file,     
-                'create_dir': self.cmd_create_dir,
-                'delete_dir': self.cmd_delete_dir,
-                'search_file': self.cmd_search_file,
-                'sys_info': self.cmd_sys_info,
-                'reg': self.cmd_reg,
-                'prt': self.cmd_prt,
-                'fastmath': self.cmd_fastmath,
                 'add': self.cmd_add,
-                'sub': self.cmd_sub,
-                'mul': self.cmd_mul,
-                'div': self.cmd_div,
-                'mod': self.cmd_mod,
-                'sqrt': self.cmd_sqrt,
-                'inp': self.cmd_inp,
-                'if': self.cmd_if,
-                'else': self.cmd_else,
-                'try': self.cmd_try,
-                'end': self.cmd_end,
-                'fetch': self.cmd_fetch,
-                'exit': self.cmd_exit,
-                'while': self.cmd_while,
-                'def': self.cmd_def,
+                'a_file': self.cmd_append_file,           
                 'call': self.cmd_call,
-                'return': self.cmd_return,
-                'inc': self.cmd_inc,
+                'cls': self.cmd_clear,
+                'create_dir': self.cmd_create_dir,
                 'dec': self.cmd_dec,
-                'wait': self.cmd_wait,
-                'fncend': self.cmd_fncend,
+                'def': self.cmd_def,
+                'del': self.cmd_del,
+                'del_file': self.cmd_delete_file,     
+                'delete_dir': self.cmd_delete_dir,
                 'dev.debug': self.dev,
-                'load': self.load,
+                'div': self.cmd_div,
+                'else': self.cmd_else,
+                'end': self.cmd_end,
+                'exit': self.cmd_exit,
+                'fastmath': self.cmd_fastmath,
+                'fetch': self.cmd_fetch,
                 'flush': self.flush,
+                'fncend': self.cmd_fncend,
+                'goto': self.cmd_goto,
+                'help': self.help,
+                'if': self.cmd_if,
+                'inc': self.cmd_inc,
+                'inp': self.cmd_inp,
+                'load': self.load,
+                'mod': self.cmd_mod,
+                'mul': self.cmd_mul,
+                'prt': self.cmd_prt,
+                'reg': self.cmd_reg,
                 'reinit': self.cmd_reinit, 
-                '--info': self.info,
+                'return': self.cmd_return,
+                'r_file': self.cmd_read_file,
+                'search_file': self.cmd_search_file,
                 'setclientrule': self.setclientrule,
+                'sqrt': self.cmd_sqrt,
+                'sub': self.cmd_sub,
+                'terminal': self.cmd_open_terminal,
+                'try': self.cmd_try,
+                'wait': self.cmd_wait,
+                'while': self.cmd_while,
+                'w_file': self.cmd_create_file,
+
+                #'sys_info': self.cmd_sys_info,
+                '--info': self.info,
             }
             self.exceptional_commands:dict={
                 "//",
@@ -164,7 +166,7 @@ try:
             #        "-bold/cyan": "\033[1;96m",   # Bold bright cyan
             #        "-bold/white": "\033[1;97m",  # Bold bright white
             #    }
-            self.additional_parameters:dict = {
+            self.nibbits:dict = { #Renamed to nibbits because "nibbits" sounds cuter than "additional_parameters" :3 #29.9.25-Raven
                 
                 "##interpreter:vars": lambda: list(self.variables.keys()),
                 "##interpreter:funcs": lambda: list(getattr(self, "functions", {}).keys()),
@@ -243,9 +245,39 @@ try:
                     self.disableprt = False
                     print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
-            print(f'Running on version:{VERSION},MintEclipse 0.4')
+            print(f'Running on version:{VERSION},MintEclipse 0.45')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
-
+        def help(self, command):
+            try:
+                from help import help_descriptions
+            except ImportError:
+                help_url="https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/essentials/help.py"
+                print(f"[WARNING] help.py not found, attempting to download from {help_url}...")
+                try:
+                    response = requests.get(help_url)
+                    if response.status_code == 200:
+                        with open("help.py", "w", encoding="utf-8") as f:
+                            f.write(response.text)
+                        from help import help_descriptions
+                        print("[INFO] help.py downloaded successfully.")
+                    else:
+                        print(f"[ERROR] Failed to download help.py. Status code: {response.status_code}")
+                        return
+                except Exception as e:
+                    print(f"[Unrecognised Error] Exception occurred while downloading help.py: {e}")
+                    return
+                
+            if command not in help_descriptions:
+                print(f"No help available for '{command}'.")
+                return
+            description = help_descriptions.get(command)
+            print("""
+Help -
+NAME:
+    {command}
+DESCRIPTION:
+    {description}
+            """.format(command=command, description=description))
         def flush(self):
             del self.variables
             del self.functions
@@ -337,7 +369,26 @@ try:
                     print(f"[DEBUG-{self.filedebug}] Load complete.")
                     print(f" ├─ Successes: {success_count}")
                     print(f" └─ Failures: {self.loaderrorcount}")
-
+        def cmd_del(self, args):
+            parts = args.split(" ",)
+            object_type = parts[0].strip().lower() if len(parts) > 0 else None
+            name = parts[1].strip() if len(parts) > 1 else None
+            if object_type == "var":
+                if name in self.variables:
+                    del self.variables[name]
+                    if self.vardebug:
+                        print(f"[DEBUG] Variable '{name}' deleted.")
+                else:
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID75: Variable '{name}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{name}' not defined, ignored due to try block.")
+            elif object_type == "func":
+                if name in self.functions:
+                    del self.functions[name]
+                    if self.vardebug:
+                        print(f"[DEBUG] Function '{name}' deleted.")
+                else:
+                    self.loaderrorcount+=1;self.raiseError(f"--ErrID76: Function '{name}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{name}' not defined, ignored due to try block.")
+            else:
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID74: Unknown object type '{object_type}' for deletion.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unknown object type '{object_type}' for deletion, ignored due to try block.")
         def log(self, message):
             if self.debug:
                 print(f"[DEBUG]: {message}")
@@ -359,7 +410,7 @@ try:
             Evaluate an IF condition and push it to the control stack.
             """
             try:
-                condition = self.replace_additional_parameters(condition)  # Replace any additional parameters like ##random, ##REPL, etc :3
+                condition = self.replace_nibbits(condition)  # Replace any additional parameters like ##random, ##REPL, etc :3
                 result = self.eval_condition(condition)  # Pass the full condition as a single string
             except ValueError as e:
                 self.loaderrorcount+=1;self.raiseError(f"--ErrID77: Invalid IF condition '{condition}'. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid IF condition '{condition}'. Details: {e}, ignored due to try block.")
@@ -506,20 +557,20 @@ try:
         def replace_variables(self, text, quoted=None):
             if not self.should_execute():
                 return text  # Skip replacement if not executing
-            text = self.replace_additional_parameters(text)
+            text = self.replace_nibbits(text)
 
             def func_replacer(match):
                 raw = match.group(1)
                 if ":" in raw:
                     func_name, arg_str = raw.split(":", 1)
                     arg_str = arg_str.strip("()")
-                    arg_str = self.replace_additional_parameters(arg_str)
                     result = self.cmd_call(f"{func_name} {arg_str}")
                     return str(result) if result is not None else ""
                 return f"<INVALID:{raw}>"
-
-            text = re.sub(r"##([\w]+:\([^\)]*\))", func_replacer, text)
-
+            try:
+                text = re.sub(r"##([\w]+:\([^\)]*\))", func_replacer, text)
+            except Exception as e:
+                self.loaderrorcount+=1;self.raiseError(f"--ErrID105: Function call replacement error in '{text}'. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function call replacement error in '{text}'. Details: {e}, ignored due to try block.")
             def var_replacer(match):
                 var_name = match.group(1)
                 if var_name in self.local_variables:
@@ -785,7 +836,7 @@ try:
                     # Log message if needed
                     if settings["log_message"]:
                         self.log_messages.append(args)
-                    args = self.replace_additional_parameters(args)
+                    args = self.replace_nibbits(args)
                     args=self._decode_escapes(args)
                     # Handle output & animated printing with delay
                     if settings["delay"]:
@@ -943,7 +994,7 @@ try:
             if not command or command.startswith(("//", "\\")):
                 return
             if "##" in command and not command.startswith("prt "):
-                command = self.replace_additional_parameters(command)
+                command = self.replace_nibbits(command)
             if getattr(self, "in_function_definition", False):
                 if command.strip().lower() == "fncend":
                     if self.cmdhandlingdebug:
@@ -1122,7 +1173,7 @@ try:
         def similarity_percentage(self, str1, str2):
             similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
             return float(similarity)
-        def replace_additional_parameters(self, input_str):
+        def replace_nibbits(self, input_str):
             """
             Replaces ##key and ##key:(arg) additional parameters safely and completely.
             Handles:
@@ -1130,6 +1181,7 @@ try:
                 - ##key:with:colons
                 - ##key:(argument)
                 - ##key:with:colons:(argument)
+            Renamed to replace_nibbits because "nibbits" sounds cuter than "additional_parameters" :3 #29.9.25-Raven
             """
             if not self.should_execute():
                 return input_str
@@ -1142,7 +1194,7 @@ try:
             matches = bracket_pattern.findall(input_str)
 
             for full_key, arg in matches:
-                func = self.additional_parameters.get(full_key)
+                func = self.nibbits.get(full_key)
                 arg_value = arg
 
                 if "$" in arg_value:
@@ -1168,11 +1220,9 @@ try:
 
                 input_str = input_str.replace(f"{full_key}:({arg})", result)
 
-            #  STEP 2: Simple param replacements, including colons
-            for key in sorted(self.additional_parameters, key=len, reverse=True):
-                func = self.additional_parameters[key]
+            for key in sorted(self.nibbits, key=len, reverse=True):
+                func = self.nibbits[key]
 
-                #  Skip if key already used in bracket-style
                 if re.search(rf"{re.escape(key)}:\(", input_str):
                     continue
 
@@ -1189,7 +1239,7 @@ try:
             return input_str
 
         def cmd_reg(self, raw_args):
-            raw_args = self.replace_additional_parameters(raw_args)
+            raw_args = self.replace_nibbits(raw_args)
             parts = raw_args.strip().split()
 
             var_type = parts[0]
@@ -1351,21 +1401,21 @@ try:
 
             except Exception as e:
                 self.raiseError(f"[Unrecognised Error] Failed to search file. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to search file. Error: {e}, ignored due to try block.")
-
-        def cmd_sys_info(self, args):
-            """
-            Displays system information.
-            Syntax: sys_info
-            """
-            import platform
-            info = {
-                "OS": platform.system(),
-                "Version": platform.version(),
-                "Release": platform.release(),
-                "Processor": platform.processor(),
-            }
-            for key, value in info.items():
-                print(f"{key}: {value}")
+        #removed in v3.94 minteclipse 0.4, #28.9.25 -Raven
+        #def cmd_sys_info(self, args):
+        #    """
+        #    Displays system information.
+        #    Syntax: sys_info
+        #    """
+        #    import platform
+        #    info = {
+        #        "OS": platform.system(),
+        #        "Version": platform.version(),
+        #        "Release": platform.release(),
+        #        "Processor": platform.processor(),
+        #    }
+        #    for key, value in info.items():
+        #        print(f"{key}: {value}")
 
         def cmd_inp(self, raw_args):
             """
@@ -1552,7 +1602,7 @@ try:
                 args=int(args)
             except:
                 pass
-            args = self.replace_additional_parameters(args)
+            args = self.replace_nibbits(args)
             args=self._int_replacer(args)
             parts = shlex.split(args.strip(" "))
             parts=self._int_replacer(parts)
@@ -1702,7 +1752,8 @@ try:
                     value = self.variables[var_name][0]
                     result = value ** 0.5
                     self.store_variable(f"{var_name}_sqrt", result, "float")
-                    print(f"Square root of {value} stored in '{var_name}_sqrt'.")
+                    if self.mathdebug:
+                        print(f"[DEBUG] Square root of {value} stored in '{var_name}_sqrt'.")
                 else:
                     self.loaderrorcount+=1;self.raiseError(f"--ErrID66: Variable '{var_name}' not defined or not numeric.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not defined or not numeric, ignored due to try block.")
                    
