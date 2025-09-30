@@ -248,36 +248,61 @@ try:
             print(f'Running on version:{VERSION},MintEclipse 0.45')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
         def help(self, command):
-            try:
-                from help import help_descriptions
-            except ImportError:
-                help_url="https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/essentials/help.py"
+            import importlib.util, os, requests
+
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            target_folder = os.path.join(base_dir, "essentials")
+            os.makedirs(target_folder, exist_ok=True)
+            file_path = os.path.join(target_folder, "help.py")
+
+            # Try to import help_descriptions directly if file exists
+            help_descriptions = None
+            if os.path.exists(file_path):
+                try:
+                    spec = importlib.util.spec_from_file_location("help_module", file_path)
+                    help_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(help_module)
+                    help_descriptions = help_module.help_descriptions
+                except Exception as e:
+                    print(f"[WARNING] Failed to import local help.py: {e}")
+
+            # If still missing, download it
+            if help_descriptions is None:
+                help_url = "https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/essentials/help.py"
                 print(f"[WARNING] help.py not found, attempting to download from {help_url}...")
                 try:
                     response = requests.get(help_url)
                     if response.status_code == 200:
-                        with open("help.py", "w", encoding="utf-8") as f:
+                        with open(file_path, "w", encoding="utf-8") as f:
                             f.write(response.text)
-                        from help import help_descriptions
-                        print("[INFO] help.py downloaded successfully.")
+
+                        spec = importlib.util.spec_from_file_location("help_module", file_path)
+                        help_module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(help_module)
+                        help_descriptions = help_module.help_descriptions
+
+                        print("[INFO] help.py downloaded and loaded successfully.")
                     else:
                         print(f"[ERROR] Failed to download help.py. Status code: {response.status_code}")
                         return
                 except Exception as e:
                     print(f"[Unrecognised Error] Exception occurred while downloading help.py: {e}")
                     return
-                
+
+            # Now actually show help
             if command not in help_descriptions:
                 print(f"No help available for '{command}'.")
                 return
+
             description = help_descriptions.get(command)
-            print("""
+            print(f"""
 Help -
 NAME:
     {command}
 DESCRIPTION:
     {description}
-            """.format(command=command, description=description))
+            """)
+
         def flush(self):
             del self.variables
             del self.functions
@@ -1248,25 +1273,11 @@ DESCRIPTION:
 
             if self.vardebug:
                 print(f"[DEBUG] Parsed Variable '{var_name}' of type '{var_type}' with value '{var_value_raw}'")
-
+        
             try:
                 # substitute variables
-                def var_replacer(match):
-                    var = match.group(1)
 
-                    if var in self.local_variables:
-                        val, vtype = self.local_variables[var]
-                    elif var in self.variables:
-                        val, vtype = self.variables[var]
-                    else:
-                        self.loaderrorcount += 1
-                        self.raiseError(f"--ErrID94: Variable '${var}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '${var}' not defined, replaced with empty string due to try block.")
-                    if vtype == "str":
-                        return str(val)
-                    return str(val) if isinstance(val, (int, float)) else val
-
-                expr = re.sub(r'\$([a-zA-Z_]\w*)', var_replacer, var_value_raw)
-                expr = self.replace_variables(expr)
+                expr = self.replace_variables(var_value_raw)
 
                 if self.mathdebug:
                     print(f"[DEBUG] Final expression to eval: '{expr}'")
@@ -1603,7 +1614,6 @@ DESCRIPTION:
             except:
                 pass
             args = self.replace_nibbits(args)
-            args=self._int_replacer(args)
             parts = shlex.split(args.strip(" "))
             parts=self._int_replacer(parts)
             if not parts:
