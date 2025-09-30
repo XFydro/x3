@@ -254,8 +254,6 @@ try:
             target_folder = os.path.join(base_dir, "essentials")
             os.makedirs(target_folder, exist_ok=True)
             file_path = os.path.join(target_folder, "help.py")
-
-            # Try to import help_descriptions directly if file exists
             help_descriptions = None
             if os.path.exists(file_path):
                 try:
@@ -266,7 +264,6 @@ try:
                 except Exception as e:
                     print(f"[WARNING] Failed to import local help.py: {e}")
 
-            # If still missing, download it
             if help_descriptions is None:
                 help_url = "https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/essentials/help.py"
                 print(f"[WARNING] help.py not found, attempting to download from {help_url}...")
@@ -289,7 +286,6 @@ try:
                     print(f"[Unrecognised Error] Exception occurred while downloading help.py: {e}")
                     return
 
-            # Now actually show help
             if command not in help_descriptions:
                 print(f"No help available for '{command}'.")
                 return
@@ -304,43 +300,16 @@ DESCRIPTION:
             """)
 
         def flush(self):
-            del self.variables
-            del self.functions
-            del self.current_function_name
-            del self.in_function_definition
-            del self.control_stack
-            del self.debug
-            del self.debuglog
-            del self.output
-            del self.log_messages
-            del self.execution_state
-            #Reinit the interpreter
-            self.REPL=REPL
-            self.variables = {} #variable dictionary
-            self.functions = {} #function dictionary, kinda messy
-            self.current_function_name = None
-            self.in_function_definition = False #flag to indicate if the code is currently in a function definition
-            self.control_stack = [] #that if else and stuff, for basic control flow monitoring
-            self.debug = False #only used as a placeholder, replaced by the new BETTER debug system
-            self.debuglog = [] #i have no idea why i made this
-            self.output = None #output for functions like fetch, i will think of improving this.
-            self.log_messages = [] #old log messages record, still works but deprecated
-            self.execution_state = {} #thought of removing this but it is still used in some control flow magic so ye.
-            #Debug Init---
-            self.ctrflwdebug = False
-            self.prtdebug = False
-            self.mathdebug = False
-            self.filedebug = False
-            self.clramadebug = False
-            self.cmdhandlingdebug = False
-            self.reqdebug=False
-            self.conddebug=False
-            self.vardebug=False
-            #---
-            #Rules Init--
-            self.fastmath=False #NEVER USE FASTMATH ON DEFAULT, ONLY CHANGE THIS IF YOU KNOW WHAT YOU'RE DOING.
-            self.semo=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
-            #---
+            self.local_variables.clear()
+            self.variables.clear()
+            self.functions.clear()
+            self.control_stack.clear()
+            self.execution_state.clear()
+            self.trystate = "False"
+            self.return_flag = False
+            self.return_value = None
+            if self.cmdhandlingdebug:
+                print("[DEBUG] Interpreter state flushed.")
         def comment_strip(self, s):
             return s.split('\\')[0]
         def load(self, filename: str) -> None:
@@ -579,11 +548,36 @@ DESCRIPTION:
                     return False
 
             return True 
+
+        def list_replacer(self, expr):
+            """
+            Replaces $list[index] patterns in an expression with the actual element.
+            Keeps strings quoted so eval won't break.
+            """
+            pattern = re.compile(r"\$(\w+)\[(\d+)\]")
+
+            def replacer(match):
+                var_name, index = match.group(1), int(match.group(2))
+                if var_name not in self.variables:
+                    self.raiseError(f"--ErrID99: Variable '{var_name}' not defined")
+                    return "None"
+                value, vtype = self.variables[var_name]
+                if vtype != "list":
+                    self.raiseError(f"--ErrID100: Variable '{var_name}' is not a list")
+                    return "None"
+                try:
+                    element = value[index]
+                    return f'"{element}"' 
+                except IndexError:
+                    self.raiseError(f"--ErrID101: Index {index} out of range for list '{var_name}'")
+                    return "None"
+            return pattern.sub(replacer, expr)
+
         def replace_variables(self, text, quoted=None):
             if not self.should_execute():
                 return text  # Skip replacement if not executing
             text = self.replace_nibbits(text)
-
+            text = self.list_replacer(text)
             def func_replacer(match):
                 raw = match.group(1)
                 if ":" in raw:
@@ -596,6 +590,7 @@ DESCRIPTION:
                 text = re.sub(r"##([\w]+:\([^\)]*\))", func_replacer, text)
             except Exception as e:
                 self.loaderrorcount+=1;self.raiseError(f"--ErrID105: Function call replacement error in '{text}'. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function call replacement error in '{text}'. Details: {e}, ignored due to try block.")
+
             def var_replacer(match):
                 var_name = match.group(1)
                 if var_name in self.local_variables:
@@ -906,6 +901,41 @@ DESCRIPTION:
             text = text.replace("\\t", "\t")
             text = text.replace("\\r", "\r")
             return text
+        def _split_list_literal(self, text):
+            """
+            Split a list literal safely, respecting quotes and nested brackets.
+            Example:
+            [1, 2, "Hello, world", [3,4]]
+            -> ['1', '2', '"Hello, world"', '[3,4]']
+            """
+            items, buf = [], ""
+            depth = 0
+            in_quotes = None
+
+            for ch in text:
+                if ch in "\"'":
+                    if in_quotes is None:
+                        in_quotes = ch
+                    elif in_quotes == ch:
+                        in_quotes = None
+                    buf += ch
+                elif ch == "[" and not in_quotes:
+                    depth += 1
+                    buf += ch
+                elif ch == "]" and not in_quotes:
+                    depth -= 1
+                    buf += ch
+                elif ch == "," and depth == 0 and not in_quotes:
+                    if buf.strip():
+                        items.append(buf.strip())
+                    buf = ""
+                else:
+                    buf += ch
+
+            if buf.strip():
+                items.append(buf.strip())
+
+            return items
 
 
 
@@ -1290,15 +1320,28 @@ DESCRIPTION:
                 elif var_type == "float":
                     final_value = float(evaluated)
                 elif var_type == "str":
-                    if (expr.startswith('"') and expr.endswith('"')) or (expr.startswith("'") and expr.endswith("'")):
-                        final_value = expr[1:-1]
+                    try:
+                        evaluated = eval(expr, {"__builtins__": {}}, {})
+                        final_value = str(evaluated)
+                    except Exception:
+                        if (expr.startswith('"') and expr.endswith('"')) or (expr.startswith("'") and expr.endswith("'")):
+                            final_value = expr[1:-1]
+                        else:
+                            final_value = expr
+
+                elif var_type == "list":
+                    if expr.startswith("[") and expr.endswith("]"):
+                        inner = expr[1:-1].strip()
+                        parts = self._split_list_literal(inner)
+                        final_value = []
+                        for p in parts:
+                            try:
+                                val = eval(p, {"__builtins__": {}}, {})
+                            except Exception:
+                                val = p 
+                            final_value.append(val)
                     else:
-                        final_value = expr
-                #elif var_type == "list":
-                #    if isinstance(evaluated, list):
-                #        final_value = evaluated
-                #    else:
-                #        final_value = [evaluated]
+                        final_value = [evaluated]
                 elif var_type == "bool":
                     if isinstance(evaluated, bool):
                         final_value = evaluated
@@ -1947,8 +1990,17 @@ DESCRIPTION:
             else:
                 print("Warning: Could not find the Command Prompt window.")
         def cmd_reinit(self): #to bring back the interpreter to its initial state. 
-            self.flush()
 
+            self.local_variables.clear()
+            self.variables.clear()
+            self.functions.clear()
+            self.control_stack.clear()
+            self.execution_state.clear()
+            self.trystate = "False"
+            self.return_flag = False
+            self.return_value = None
+            if self.cmdhandlingdebug:
+                print("[DEBUG] Interpreter state flushed.")
             import argparse
             import time
             import re
