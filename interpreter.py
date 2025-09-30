@@ -1,4 +1,4 @@
-#this software is licenced under CC4.0 BY-SA-NC, for more information check: https://creativecommons.org/licenses/by-nc-sa/4.0
+#this software is licenced under MIT License, for more information check: https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/license.txt
 #MintEclipse 0.4
 #warning: this code is a mess, i know it, you know it, everyone knows it. but it works so ye TvT. -Raven
 #i will try to clean it up in future updates. -Raven
