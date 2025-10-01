@@ -59,6 +59,7 @@ try:
             self.debuglog:list = [] #i have no idea why i made this
             self.output:str = None #output for functions like fetch, i will think of improving this.
             self.log_messages:list = [] #old log messages record, still works but deprecated
+            self.loaded_files:list = [] #list of loaded files, to prevent recursion during file loading.
             self.execution_state:dict = {} #thought of removing this but it is still used in some control flow magic so ye.
             self.trystate:str = "False" #for checking whether the current block is in a try state or not. (had to make it a string because of setattr and getattr)
             self.return_flag:bool = False
@@ -315,7 +316,12 @@ DESCRIPTION:
         def load(self, filename: str) -> None:
             self.loaderrorcount = 0
             success_count = 0
-
+            if filename in self.loaded_files:
+                if self.filedebug:
+                    print(f"[DEBUG-{self.filedebug}] File '{filename}' already loaded, skipping to prevent recursion.")
+                return
+            if self.filedebug:
+                print(f"[DEBUG-{self.filedebug}] Starting to load file: {filename}")
             try:
                 if not isinstance(filename, str):
                     raise TypeError(f"Expected filename as str, got {type(filename).__name__}.")
@@ -347,7 +353,7 @@ DESCRIPTION:
                             if self.filedebug:
                                 print(f"[Line {lineno}] Failed: {line}")
                             continue
-
+                self.loaded_files.append(filename)
             except (FileNotFoundError, PermissionError, TypeError, RuntimeError) as critical:
                 if self.filedebug:
                     print(f"[LOAD-CRITICAL] {critical}")
@@ -576,8 +582,11 @@ DESCRIPTION:
         def replace_variables(self, text, quoted=None):
             if not self.should_execute():
                 return text  # Skip replacement if not executing
-            text = self.replace_nibbits(text)
             text = self.list_replacer(text)
+            text = self.replace_nibbits(text)
+            if self.vardebug:
+                print(f"[DEBUG] Replacing variables in: {text}")
+
             def func_replacer(match):
                 raw = match.group(1)
                 if ":" in raw:
@@ -588,6 +597,8 @@ DESCRIPTION:
                 return f"<INVALID:{raw}>"
             try:
                 text = re.sub(r"##([\w]+:\([^\)]*\))", func_replacer, text)
+                if self.vardebug:
+                    print(f"[DEBUG] After function replacement: {text}")
             except Exception as e:
                 self.loaderrorcount+=1;self.raiseError(f"--ErrID105: Function call replacement error in '{text}'. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function call replacement error in '{text}'. Details: {e}, ignored due to try block.")
 
@@ -606,6 +617,8 @@ DESCRIPTION:
 
                 else:
                     self.loaderrorcount+=1;self.raiseError(f"--ErrID94: Variable '{var_name}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not defined, replaced with empty string due to try block.")
+            if self.vardebug:
+                print(f"[DEBUG] Final variable replacement in: {text}")
 
             return re.sub(r"\$([a-zA-Z_][a-zA-Z0-9_]*)", var_replacer, text)
 
@@ -1650,40 +1663,77 @@ DESCRIPTION:
             Syntax:
                 call function_name [args...]
             """
-            
-            self.local=True
+
+            def depth_split(s: str):
+                parts = []
+                buf = ""
+                depth = 0
+                in_string = False
+                string_char = None
+
+                for ch in s.strip():
+                    if ch in ("'", '"'):
+                        if not in_string:
+                            in_string = True
+                            string_char = ch
+                        elif string_char == ch:
+                            in_string = False
+                            string_char = None
+                        buf += ch
+                        continue
+
+                    if not in_string:
+                        if ch in "[{(":
+                            depth += 1
+                            buf += ch
+                        elif ch in "]})":
+                            depth -= 1
+                            buf += ch
+                        elif ch.isspace() and depth == 0:
+                            if buf:
+                                parts.append(buf)
+                                buf = ""
+                        else:
+                            buf += ch
+                    else:
+                        buf += ch
+
+                if buf:
+                    parts.append(buf)
+                return parts
+
+            self.local = True
             try:
-                args=int(args)
+                args = int(args)
             except:
                 pass
-            args = self.replace_nibbits(args)
-            parts = shlex.split(args.strip(" "))
-            parts=self._int_replacer(parts)
-            if not parts:
-                self.loaderrorcount+=1;self.raiseError("--ErrID36: No function name specified in 'call'")if getattr(self, "trystate")=="False" else print(f"[WARNING] No function name specified in 'call', ignored due to try block.")
 
+            args = self.replace_nibbits(args)
+            parts = depth_split(args)  
+            parts = self._int_replacer(parts)
+
+            if not parts:
+                self.loaderrorcount += 1
+                self.raiseError("--ErrID36: No function name specified in 'call'") if getattr(self, "trystate") == "False" else print(f"[WARNING] No function name specified in 'call', ignored due to try block.")
+                return
 
             function_name = parts[0]
             if function_name not in self.functions:
-                self.loaderrorcount+=1;self.raiseError(f"--ErrID37: Function '{function_name}' not defined.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{function_name}' not defined, ignored due to try block.")
-
+                self.loaderrorcount += 1
+                self.raiseError(f"--ErrID37: Function '{function_name}' not defined.") if getattr(self, "trystate") == "False" else print(f"[WARNING] Function '{function_name}' not defined, ignored due to try block.")
+                return
 
             fnc = self.functions[function_name]
             fnc_params = fnc.get("params", [])
             fnc_body = fnc.get("body", [])
             passed_args = parts[1:]
-
-            #Check parameter count
             if len(passed_args) != len(fnc_params):
-                self.loaderrorcount+=1;self.raiseError(f"--ErrID98: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}, ignored due to try block.")
-            
+                self.loaderrorcount += 1
+                self.raiseError(f"--ErrID98: Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}") if getattr(self, "trystate") == "False" else print(f"[WARNING] Function '{function_name}' expects {len(fnc_params)} args, got {len(passed_args)}, ignored due to try block.")
                 return
-            # Setup local variables
             self.local_variables = {}
             for param, value in zip(fnc_params, passed_args):
                 self.store_variable(param, value, "str", local=True)
-
-
             if self.ctrflwdebug:
                 print(f"[DEBUG] Calling function '{function_name}' with arguments: {dict(zip(fnc_params, passed_args))}")
             try:
@@ -1691,15 +1741,16 @@ DESCRIPTION:
                     self.handle_command(command)
                     if self.return_flag:
                         break
-                # Capture return and clear local scope
                 result = self.return_value
                 self.return_flag = False
                 self.return_value = None
                 self.local_variables = {}
-                self.local=False
+                self.local = False
                 return result
             except RecursionError:
-                self.loaderrorcount+=1;self.raiseError(f"--ErrID99: Maximum recursion depth exceeded in function '{function_name}'.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Maximum recursion depth exceeded in function '{function_name}', ignored due to try block.")
+                self.loaderrorcount += 1
+                self.raiseError(f"--ErrID99: Maximum recursion depth exceeded in function '{function_name}'.") if getattr(self, "trystate") == "False" else print(f"[WARNING] Maximum recursion depth exceeded in function '{function_name}', ignored due to try block.")
+
         def cmd_switch(self, args):
             """Switch-case implementation."""
             if not args:
