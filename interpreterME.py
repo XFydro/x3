@@ -630,25 +630,72 @@ DESCRIPTION:
             def debug(msg):
                 if self.conddebug:
                     print(f"[DEBUG] {msg}")
+            import ast
+            import operator
+
+            _ALLOWED_OPS = {
+                ast.Add: operator.add,
+                ast.Sub: operator.sub,
+                ast.Mult: operator.mul,
+                ast.Div: operator.truediv,
+                ast.FloorDiv: operator.floordiv,
+                ast.Mod: operator.mod,
+                ast.Pow: operator.pow,
+                ast.USub: operator.neg,
+                ast.UAdd: operator.pos,
+            }
+            def safe_eval_math(expr):
+                def _eval(node):
+                    if isinstance(node, ast.Constant):
+                        if isinstance(node.value, (int, float)):
+                            return node.value
+                        raise ValueError
+
+                    if isinstance(node, ast.BinOp):
+                        return _ALLOWED_OPS[type(node.op)](
+                            _eval(node.left),
+                            _eval(node.right)
+                        )
+
+                    if isinstance(node, ast.UnaryOp):
+                        return _ALLOWED_OPS[type(node.op)](_eval(node.operand))
+
+                    raise ValueError
+
+                tree = ast.parse(expr, mode="eval")
+                return _eval(tree.body)
 
             def get_value(token):
+                token = token.strip()
                 token_lower = token.lower()
+
                 if token_lower in ("true", "false"):
                     val = token_lower == "true"
                     debug(f"Resolved boolean literal {token} -> {val}")
                     return val
-                token = token.strip()
-                if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
+
+                if (token.startswith('"') and token.endswith('"')) or \
+                (token.startswith("'") and token.endswith("'")):
                     val = token[1:-1]
                     debug(f"Resolved literal string {token} -> {val!r}")
                     return val
+
                 try:
-                    val = float(token) if '.' in token else int(token)
+                    val = safe_eval_math(token)
+                    debug(f"Evaluated math expression {token} -> {val}")
+                    return val
+                except Exception:
+                    pass
+
+                try:
+                    val = float(token) if "." in token else int(token)
                     debug(f"Parsed numeric literal {token} -> {val!r}")
                     return val
                 except ValueError:
-                    debug(f"Interpreting token {token} as string {token!r}")
-                    return token   # ← this is the problem
+                    pass
+
+                debug(f"Interpreting token {token} as string {token!r}")
+                return token
 
             def compare_values(left, op, right):
                 debug(f"Comparing {left!r} {op} {right!r}")
@@ -689,8 +736,12 @@ DESCRIPTION:
                 for op in ops:
                     parts = expr.split(op)
                     if len(parts) == 2:
-                        left_val = get_value(parts[0])
-                        right_val = get_value(parts[1])
+                        left_raw = parts[0].strip()
+                        right_raw = parts[1].strip()
+
+                        left_val = get_value(left_raw)
+                        right_val = get_value(right_raw)
+
                         result = compare_values(left_val, op, right_val)
                         debug(f"Result of {parts[0]} {op} {parts[1]} -> {result}")
                         return result
@@ -1155,13 +1206,10 @@ DESCRIPTION:
                 "condition": "conddebug",
                 "variable": "vardebug",
             }
-
             if not raw_args.strip():
                 print("[SELF-DEBUG] Please provide a debug option (e.g., 'dev controlflow').")
                 return
-
             args = raw_args.lower().split()
-
             if "all" in args or "none" in args:
                 enable = "all" in args
                 self.debug = enable
@@ -1169,7 +1217,6 @@ DESCRIPTION:
                     setattr(self, attr, enable)
                 print(f"[SELF-DEBUG] {'Enabled' if enable else 'Disabled'} all debugging options.")
                 return
-
             enabled_any = False
             for dbg_option in args:
                 if dbg_option in debug_options:
@@ -1180,7 +1227,6 @@ DESCRIPTION:
                     enabled_any = True
                 else:
                     print(f"[SELF-DEBUG] Incorrect usage: Unknown debug option '{dbg_option}'.")
-
             if not enabled_any:
                 print("[SELF-DEBUG] No valid debug options provided. Use 'dev All' to enable all.")
 
@@ -1508,17 +1554,20 @@ DESCRIPTION:
                 args = shlex.split(raw_args)
                 
                 # Validate argument count
-                if len(args) < 2:
-                    raise ValueError("Missing arguments. Expected at least variable name and prompt")
+                if len(args) < 1:
+                    raise ValueError("Missing arguments. Expected variable name.")
                     
                 # Extract and validate arguments
                 var_name = args[0]
                 if not var_name.isidentifier():
                     raise ValueError(f"'{var_name}' is not a valid variable name")
-                    
-                prompt = args[1]
-                default = args[2] if len(args) > 2 else None
-                
+                if len(args) >= 2:
+                    prompt = args[1]
+                    default = args[2] if len(args) > 2 else None
+                else:
+                    prompt = ""
+                    default = None
+
                 # Build and display the input prompt
                 prompt_text = f"{prompt}"
                 if default is not None:
@@ -2141,3 +2190,4 @@ except Exception as e:
 #Official release of Eclispe 0.9. May/25
 #Development Phase start of MintEclipse. June/25
 #Official 2k lines of code!!-July/25
+#Restarting Development - January/26 
