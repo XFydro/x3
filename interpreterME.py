@@ -1,14 +1,22 @@
 #this software is licenced under MIT License, for more information check: https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/license.txt
-#MintEclipse 0.4
 #warning: this code is a mess, i know it, you know it, everyone knows it. but it works so ye TvT. -Raven
 #i will try to clean it up in future updates. -Raven
-
+"""
+Requirements:
+__Python3.8+
+__Pip(Latest Update for better experience)
+__Internet Connection(for first run to download essentials like help files)
+__Minimal Hardware resources:2GB Ram
+__Patience because python is slow af :P
+__Essentials Folder in the same directory as run.py (will be created automatically on first run if not present)
+"""
 from difflib import SequenceMatcher
 import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, struct
 #import cProfile
 REPL=0 #on default script mode.
-VERSION=3.945 #version (For IDE and more)
-def install_package(package, alias=None): #package installation using subprocess.
+VERSION=3.95 #version (For IDE and more)
+
+def install_package(package, alias=None)->None:
     import sys
     try:
         module = importlib.import_module(package)
@@ -20,27 +28,15 @@ def install_package(package, alias=None): #package installation using subprocess
         try:
             module = importlib.import_module(package)
         except ImportError:
-            print(f"Error: Failed to import {package} after installation.")
+            print(f"ErrID14: Failed to import {package} after installation.")
             return None
     if alias:
         globals()[alias] = module
         print(f"Imported {package} as {alias}.")
     else:
         globals()[package] = module
-
-    return module  
-install_package("psutil") #import psutil for memory usage and other system info.
-install_package("requests") #import requests for HTTP requests.
-"""
-Requirements:
-__Python3.6+
-__Pip(Latest Update for better experience)
-__Basic Internet Access
-__Minimal Hardware resources:2GB Ram
-__Patience because python is slow af :P
-
-"""
-
+install_package("psutil")
+install_package("requests")
 try:
     class Error(Exception):
         pass
@@ -78,7 +74,6 @@ try:
             #---
             #Rules Init--
             self.semo:bool=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
-            self.pedl:bool=False #Prevent Execution During Load, to prevent the interpreter to run commands during file loading, primarily for modules, i completely forgot to actually implement this aaaaa #29.9.25-Raven.
             self.disableprt:bool=False #Disable Print, to disable the print command, ok actually i have no idea why i made this TwT #29.9.25-Raven.
             #---
             self.command_mapping:dict = { 
@@ -102,7 +97,6 @@ try:
                 'flush': self.flush,
                 'fncend': self.cmd_fncend,
                 'goto': self.cmd_goto,
-                'help': self.help,
                 'if': self.cmd_if,
                 'inc': self.cmd_inc,
                 'inp': self.cmd_inp,
@@ -123,50 +117,14 @@ try:
                 'wait': self.cmd_wait,
                 'while': self.cmd_while,
                 'w_file': self.cmd_create_file,
-
-                #'sys_info': self.cmd_sys_info,
                 '--info': self.info,
+                '--help': self.help,
             }
             self.exceptional_commands:dict={
                 "//",
                 "",
                 " ",
             }
-        
-            #self.color_dict:dict = { #doesn't works anymore for some reason
-            #        # Foreground Colors (Approx ROYGBIV)
-            #        "-/red": "\033[91m",         # Bright red
-            #        "-/orange": "\033[38;5;214m",  # Approximate orange (256 color mode)
-            #        "-/yellow": "\033[93m",      # Bright yellow
-            #        "-/green": "\033[92m",       # Bright green
-            #        "-/blue": "\033[94m",        # Bright blue
-            #        "-/indigo": "\033[38;5;57m",  # Approximate indigo (256 color mode)
-            #        "-/violet": "\033[38;5;135m",  # Approximate violet (256 color mode)
-            #        "-/cyan": "\033[96m",        # Bright cyan
-            #        "-/white": "\033[97m",       # Bright white
-            #        
-            #       # Background Colors
-            #        "-bg/red": "\033[41m",       # Red background
-            #        "-bg/orange": "\033[48;5;214m",  # Orange background (256 color mode)
-            #        "-bg/yellow": "\033[43m",    # Yellow background
-            #        "-bg/green": "\033[42m",     # Green background
-            #        "-bg/blue": "\033[44m",      # Blue background
-            #        "-bg/indigo": "\033[48;5;57m",  # Indigo background (256 color mode)
-            #        "-bg/violet": "\033[48;5;135m",  # Violet background (256 color mode)
-            #        "-bg/cyan": "\033[46m",      # Cyan background
-            #        "-bg/white": "\033[47m",     # White background
-            #        
-            #        # Bold Colors
-            #        "-bold/red": "\033[1;91m",    # Bold bright red
-            #        "-bold/orange": "\033[1;38;5;214m",  # Bold orange (256 color mode)
-            #        "-bold/yellow": "\033[1;93m", # Bold bright yellow
-            #        "-bold/green": "\033[1;92m",  # Bold bright green
-            #        "-bold/blue": "\033[1;94m",   # Bold bright blue
-            #        "-bold/indigo": "\033[1;38;5;57m",  # Bold indigo (256 color mode)
-            #        "-bold/violet": "\033[1;38;5;135m",  # Bold violet (256 color mode)
-            #        "-bold/cyan": "\033[1;96m",   # Bold bright cyan
-            #        "-bold/white": "\033[1;97m",  # Bold bright white
-            #    }
             self.nibbits:dict = { #Renamed to nibbits because "nibbits" sounds cuter than "additional_parameters" :3 #29.9.25-Raven
                 
                 "##interpreter:vars": lambda: list(self.variables.keys()),
@@ -213,24 +171,24 @@ try:
                         else f"ping -c 1 {host}"
                     )
                 ),
-                "##fetch": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
-                "##fetch:json": lambda url="": requests.get(url).json() if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
-                "##fetch:status": lambda url="": requests.get(url).status_code if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
-                "##fetch:headers": lambda url="": requests.get(url).headers if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
-                "##fetch:content": lambda url="": requests.get(url).content if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
-                "##fetch:html": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
-                "##fetch:xml": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Requests module not available")),
+                "##fetch": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Fetch not available")),
+                "##fetch:json": lambda url="": requests.get(url).json() if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Fetch not available")),
+                "##fetch:status": lambda url="": requests.get(url).status_code if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Fetch not available")),
+                "##fetch:headers": lambda url="": requests.get(url).headers if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Fetch not available")),
+                "##fetch:content": lambda url="": requests.get(url).content if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Fetch not available")),
+                "##fetch:html": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Fetch not available")),
+                "##fetch:xml": lambda url="": requests.get(url).text if 'requests' in globals() else (_ for _ in ()).throw(Error("--ErrID102: Fetch not available")),
                 
                 "##rgb": lambda hex="#000000": tuple(int(hex.strip("#")[i:i+2], 16) for i in (0, 2, 4)),
 
-                "##readfile": lambda path="": open(path, "r").read() if os.path.exists(path) else "[File not found]",#returns entire file content as an single string for some reason
+                "##readfile": lambda path="": open(path, "r").read() if os.path.exists(path) else "[File not found]",#returns entire file content as an single string
 
 
             }
         def raiseError(self, message):
             raise Error(message)
         def setclientrule(self, args):
-            allowed=['repl', 'fastmath', 'semo', 'pedl','disableprt']
+            allowed=['repl', 'semo','disableprt']
             newargs=args.split(" ")
             for i in range(0,len(newargs)):
                 if newargs[i] in allowed:
@@ -242,11 +200,10 @@ try:
                 if newargs[i]=="reset":
                     # Reset all rules to default (i hope my lazy ahh wont forget updating this part everytime new rules are added) #12.8.25
                     self.semo = False
-                    self.pedl = False
                     self.disableprt = False
                     print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
-            print(f'Running on version:{VERSION},MintEclipse 0.45')
+            print(f'Running on version:{VERSION}')
             print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
         def help(self, command):
             import importlib.util, os, requests
@@ -263,8 +220,7 @@ try:
                     spec.loader.exec_module(help_module)
                     help_descriptions = help_module.help_descriptions
                 except Exception as e:
-                    print(f"[WARNING] Failed to import local help.py: {e}")
-
+                    pass
             if help_descriptions is None:
                 help_url = "https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/essentials/help.py"
                 print(f"[WARNING] help.py not found, attempting to download from {help_url}...")
@@ -281,10 +237,10 @@ try:
 
                         print("[INFO] help.py downloaded and loaded successfully.")
                     else:
-                        print(f"[ERROR] Failed to download help.py. Status code: {response.status_code}")
+                        print(f"--ErrID17: Failed to download help.py. Status code: {response.status_code}")
                         return
                 except Exception as e:
-                    print(f"[Unrecognised Error] Exception occurred while downloading help.py: {e}")
+                    print(f"--ErrID18: Exception occurred while downloading help.py: {e}")
                     return
 
             if command not in help_descriptions:
@@ -294,12 +250,10 @@ try:
             description = help_descriptions.get(command)
             print(f"""
 Help -
-NAME:
-    {command}
+NAME:{command}
 DESCRIPTION:
     {description}
             """)
-
         def flush(self):
             self.local_variables.clear()
             self.variables.clear()
@@ -329,10 +283,8 @@ DESCRIPTION:
                     raise FileNotFoundError(f"File '{filename}' does not exist.")
                 if not os.access(filename, os.R_OK):
                     raise PermissionError(f"No read permission for file '{filename}'.")
-
                 if self.filedebug:
                     print(f"[DEBUG-{self.filedebug}] Opening file: {filename}")
-
                 try:
                     interpreter = self
                 except Exception as e:
@@ -363,7 +315,6 @@ DESCRIPTION:
                     print(f"[LOAD-UNKNOWN] Unexpected error:\n{unknown}")
                     if self.filedebug:
                         traceback.print_exc()
-
             finally:
                 if self.filedebug:
                     print(f"[DEBUG-{self.filedebug}] Load complete.")
@@ -398,7 +349,7 @@ DESCRIPTION:
             if args!="legacy":  
                 os.system('cls' if os.name == 'nt' else 'clear')
             else:
-                print("\n" * 100) #for terminals that dont support cls.
+                print("\n" * 100) #for terminals or non-tty outputs that dont support cls.
         def cmd_try(self):
             self.trystate = "True"
             self.control_stack.append({"type": "try"})
@@ -415,8 +366,6 @@ DESCRIPTION:
             except ValueError as e:
                 self.loaderrorcount+=1;self.raiseError(f"--ErrID77: Invalid IF condition '{condition}'. Details: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Invalid IF condition '{condition}'. Details: {e}, ignored due to try block.")
                
-
-            # Push IF block to control stack (remains until `end`)
             self.control_stack.append({"type": "if", "executed": result, "has_else": False})
             if self.ctrflwdebug:
                 print(f"[DEBUG] IF condition '{condition}' evaluated to {result}, pushed to stack.")
@@ -459,15 +408,13 @@ DESCRIPTION:
             Implements a while-loop functionality with proper nested execution.
             Skips pushing a new while-loop if the last one is on the same line.
             """
-            # Check if the last control block is a while on the same line
             if (self.control_stack and 
                 self.control_stack[-1]["type"] == "while" and 
                 self.control_stack[-1]["start_line"] == self.current_line):
                 if self.ctrflwdebug:
                     print(f"[DEBUG] Skipping duplicate WHILE on line {self.current_line}")
-                return  # Exit without pushing a new while
+                return  
 
-            # Respect the current execution state (inside IF blocks, etc.)
             if not self.should_execute():
                 executed = False
             else:
@@ -504,7 +451,6 @@ DESCRIPTION:
                 print(f"[DEBUG] END: Popped block: {block}")
 
             if block_type == "while":
-                # Only evaluate loop again if it was actually active
                 if block["executed"]:
                     try:
                         condition_still_true = self.eval_condition(self.replace_variables(block["condition"]))
@@ -533,14 +479,6 @@ DESCRIPTION:
                     print(f"[DEBUG] Closing TRY block")
             else:
                 self.loaderrorcount+=1;self.raiseError(f"--ErrID93: Unknown control block type '{block_type}' during END.") if getattr(self, "trystate")=="False" else print(f"[WARNING] Unknown control block type '{block_type}' during END.") #just realised this will never be triggered TwT #29.8.25
-        def find_while_start(self, condition):
-            """Finds the start of the while loop in the script."""
-            '''i feel something is wrong with this but i dont know what'''
-            for i in range(self.current_line, -1, -1):
-                line = self.lines[i].strip()
-                if line.startswith("while ") and condition in line:
-                    return i   # Return line after while statement
-            return self.current_line
         def should_execute(self):
             """
             Determine if the current block should execute based on active IF conditions.
@@ -624,6 +562,7 @@ DESCRIPTION:
 
         def eval_condition(self, condition_str):
             condition_str = self.replace_variables(condition_str, quoted=True)  # Replace variables in the condition
+            condition_str = self.replace_nibbits(condition_str)  # Replace nibbits in the condition
             if self.conddebug:
                 print(f"[DEBUG] Evaluating condition: {condition_str}")
 
@@ -1284,9 +1223,6 @@ DESCRIPTION:
         #
         #        self.loaderrorcount+=1;self.raiseError(f"--ErrID72: Variable '{var_name}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not found, ignored due to try block.")
                
-        def similarity_percentage(self, str1, str2):
-            similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio() * 100
-            return float(similarity)
         def replace_nibbits(self, input_str):
             """
             Replaces ##key and ##key:(arg) additional parameters safely and completely.
@@ -1330,7 +1266,10 @@ DESCRIPTION:
                 except Exception as e:
                     if self.cmdhandlingdebug:
                         print(f"[DEBUG] Error calling function '{full_key}' with args '{arg_value}': {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Error calling function '{full_key}' with args '{arg_value}': {e}, ignored due to try block.")
-                    result = f"<CRITICAL ERROR>"
+                    if getattr(self, "trystate")=="True":
+                        result = f"<CRITICAL ERROR>"
+                    else:
+                        self.loaderrorcount+=1;self.raiseError(f"--ErrID15: Error calling function '{full_key}' with args '{arg_value}': {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Error calling function '{full_key}' with args '{arg_value}': {e}, ignored due to try block.")
 
                 input_str = input_str.replace(f"{full_key}:({arg})", result)
 
@@ -1917,6 +1856,7 @@ DESCRIPTION:
 
         def cmd_fastmath(self,a):x,e=a.split('=',1);r=eval(e,{'__builtins__':None,'math':math},{k:self.variables[k][0]for k in self.variables});self.variables[x.strip()]=[r,'float'if type(r) is float else'int']
         """
+        #August 2025 - Raven
         oh god this is insane on so many levels like just look at this
         this makes me wonna vomit.
         Absolutely disgusting piece of code just for the sake of faster math operations.
@@ -2011,28 +1951,20 @@ DESCRIPTION:
             return var_name  #  Return the variable name itself if undefined
 
         def cmd_open_terminal(self, args):
-            #kinda used chatgpt with this one sorri :c
             install_package('pygetwindow', "gw") #Import pygetwindow as "gw" lol.
-
-            from colorama import Fore, Style #for custom font color in terminal
-
+            from colorama import Fore, Style 
             if "," not in args:
                 args = args.split()
             else:
                 args = args.split(", ")
-
             if len(args) < 5:
                 self.loaderrorcount+=1;self.raiseError("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName], ignored due to try block.")
-               
                 return
-
-            # Check if 'load' is given BEFORE checking colors
             load_mode = False
             if "load=true" in args:
-                args.remove("load=true")  # Remove it from the list
+                args.remove("load=true") 
                 load_mode = True
 
-            # Check if a valid color name is given (after "load" is handled)
             color_name = None
             if len(args) > 5:  
                 last_arg = args[-1]
@@ -2045,38 +1977,25 @@ DESCRIPTION:
 
                 if last_arg in valid_colors:
                     color_name = valid_colors[last_arg]
-                    args.pop()  # Remove color from argument list
+                    args.pop() 
 
-            # Extract remaining arguments
             if len(args) < 5:
                 self.loaderrorcount+=1;self.raiseError("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName], ignored due to try block.")
-               
-
                 return
-
             command, pos_x, pos_y, width, height = args
-
             try:
                 pos_x, pos_y, width, height = map(int, [pos_x, pos_y, width, height])
             except ValueError:
                 self.loaderrorcount+=1;self.raiseError("--ErrID101: Position and size parameters must be integers.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Position and size parameters must be integers, ignored due to try block.")
-               
-
                 return
 
             terminal_title = "CMD"
 
-            # If 'load' is given, modify the command to load the first argument in the interpreter
             if load_mode:
                 command = f'python.exe "MintEclipse.py" -f "{command}"'
 
-            # Set default color to White if none provided
             cmd_color = color_name if color_name else "7"
-
-            # Default CMD start command with color
             cmd = f'start "CMD" cmd /k "title {terminal_title} & chcp 65001 & color {cmd_color} & {command}"'
-
-            # Open the terminal
             subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
             time.sleep(1.0)
 
@@ -2099,18 +2018,18 @@ DESCRIPTION:
             self.trystate = "False"
             self.return_flag = False
             self.return_value = None
+            #Clean python state
+            def flush_python_state():
+                import gc
+                gc.collect()
+                for name in dir():
+                    if not name.startswith('_'):
+                        if name in globals():
+                            del globals()[name]
+            flush_python_state()
+            import datetime, platform, uuid, getpass, socket, traceback, builtins, argparse, time, re, os, shlex, json, difflib, subprocess, importlib, random, math, struct
             if self.cmdhandlingdebug:
                 print("[DEBUG] Interpreter state flushed.")
-            import argparse
-            import time
-            import re
-            import os
-            import shlex 
-            import json
-            import difflib
-            import subprocess
-            import sys
-            import importlib
             
         def cmd_goto(self, line_number):
             """
@@ -2121,10 +2040,8 @@ DESCRIPTION:
                     target_line = int(line_number)
                     if target_line < 1 or target_line > len(self.script_lines):
                         self.loaderrorcount+=1;self.raiseError(f"--ErrID75: Line {target_line} is out of range.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Line {target_line} is out of range, ignored due to try block.")
-                       
-
                         return
-                    self.current_line = target_line - 1  # Adjusted for 0-based index
+                    self.current_line = target_line - 1
                     if self.cmdhandlingdebug:
                         print(f"[DEBUG] Jumping to line {target_line}.")
 
@@ -2173,18 +2090,22 @@ DESCRIPTION:
                     except (KeyboardInterrupt, EOFError):
                         print("\nExiting.")
                         break
+            if interpreter.control_stack:
+                print("--ErrID102: Program ended with unclosed blocks:")
+                for block in interpreter.control_stack:
+                    print(" -", block["type"])
+
         except (KeyboardInterrupt, EOFError):
             print("\nExiting.")
         except Exception as e:
             print(f"{e}")
     if __name__ == "__main__":
-        #cProfile.run("main()")
         main()
 except (KeyboardInterrupt, EOFError):
     print("\nExiting")
 
 except Exception as e:
-    print(f"[ERROR]: {e},\nTerminating script.")
+    print(f"--ErrID16: {e},\nTerminating script.")
 #Official 1k lines of code!!-November/24
 #Development Phase start of Eclispe-March/25
 #Official release of Eclispe 0.9. May/25
