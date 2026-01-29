@@ -204,7 +204,7 @@ try:
                     print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
             print(f'Running on version:{VERSION}')
-            print(f'Developed by XFydro 08.2024-Present, under CC4.0 BY-SA-NC license.')
+            print(f'Developed by 'Raven Corvidae' 08.2024-Present, under CC4.0 BY-SA-NC license.')
         def help(self, command):
             import importlib.util, os, requests
 
