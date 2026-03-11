@@ -1,4 +1,4 @@
-#this software is licenced under MIT License, for more information check: https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/license.txt
+#this software is licenced under the GNU General Public License v3.0, for more information check: https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/license.txt
 #warning: this code is a mess, i know it, you know it, everyone knows it. but it works so ye TvT. -Raven
 #i will try to clean it up in future updates. -Raven
 """
@@ -46,13 +46,13 @@ try:
             self.REPL:int=REPL
             self.current_line:int=-1
             self.variables:dict = {} #variable dictionary
-            self.functions:dict = {} #function dictionary, kinda messy
+            self.functions:dict = {} #function dictionary
             self.current_function_name:str = None
             self.in_function_definition:bool = False #flag to indicate if the code is currently in a function definition
             self.local:bool = False #local variable flag, used to indicate if a var is being declared locally or globally
             self.control_stack:list = [] #that if else and stuff, for basic control flow monitoring
             self.debug:bool = False #only used as a placeholder, replaced by the new BETTER debug system
-            self.debuglog:list = [] #i have no idea why i made this
+            self.debuglog:list = [] #log() function list.
             self.output:str = None #output for functions like fetch, i will think of improving this.
             self.log_messages:list = [] #old log messages record, still works but deprecated
             self.loaded_files:list = [] #list of loaded files, to prevent recursion during file loading.
@@ -74,7 +74,7 @@ try:
             #---
             #Rules Init--
             self.semo:bool=False #Script Execution Mode Only, this is used to prevent REPL from executing commands.
-            self.disableprt:bool=False #Disable Print, to disable the print command, ok actually i have no idea why i made this TwT #29.9.25-Raven.
+            self.disableprt:bool=False #Disable Print, to disable the print command, i forgot why i made this TwT #29.9.25-Raven.
             #---
             self.command_mapping:dict = { 
                 'add': self.cmd_add,
@@ -94,7 +94,7 @@ try:
                 'exit': self.cmd_exit,
                 'fastmath': self.cmd_fastmath,
                 'fetch': self.cmd_fetch,
-                'flush': self.flush,
+                'flush': self.cmd_reworkedflush,
                 'fncend': self.cmd_fncend,
                 'goto': self.cmd_goto,
                 'if': self.cmd_if,
@@ -105,15 +105,14 @@ try:
                 'mul': self.cmd_mul,
                 'prt': self.cmd_prt,
                 'reg': self.cmd_reg,
-                'reinit': self.cmd_reinit, 
                 'return': self.cmd_return,
                 'r_file': self.cmd_read_file,
                 'search_file': self.cmd_search_file,
                 'setclientrule': self.setclientrule,
                 'sqrt': self.cmd_sqrt,
                 'sub': self.cmd_sub,
-                'terminal': self.cmd_open_terminal,
-                'try': self.cmd_try,
+                 #'terminal': self.cmd_open_terminal,
+                'brute': self.cmd_brute,
                 'wait': self.cmd_wait,
                 'while': self.cmd_while,
                 'w_file': self.cmd_create_file,
@@ -126,7 +125,7 @@ try:
                 " ",
             }
             self.nibbits:dict = { #Renamed to nibbits because "nibbits" sounds cuter than "additional_parameters" :3 #29.9.25-Raven
-                
+                #misc inline functions, that can be used in commands by using the syntax ##function_name or ##function_name(args) or ##function_name:type:(args) for functions with arguments. (arguments must be enclosed in parentheses)
                 "##interpreter:vars": lambda: list(self.variables.keys()),
                 "##interpreter:funcs": lambda: list(getattr(self, "functions", {}).keys()),
                 "##interpreter:memory": lambda: f"{round(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024, 2)} MB" if 'psutil' in globals() else "[psutil module not available]",
@@ -188,7 +187,7 @@ try:
         def raiseError(self, message):
             raise Error(message)
         def setclientrule(self, args):
-            allowed=['repl', 'semo','disableprt']
+            allowed=['REPL', 'semo','disableprt']
             newargs=args.split(" ")
             for i in range(0,len(newargs)):
                 if newargs[i] in allowed:
@@ -204,7 +203,7 @@ try:
                     print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
             print(f'Running on version:{VERSION}')
-            print(f'Developed by 'Raven Corvidae' 08.2024-Present, under CC4.0 BY-SA-NC license.')
+            print(f'Developed by Raven Corvidae 07.2024-Present, under CC4.0 BY-SA-NC license.')
         def help(self, command):
             import importlib.util, os, requests
 
@@ -254,17 +253,6 @@ NAME:{command}
 DESCRIPTION:
     {description}
             """)
-        def flush(self):
-            self.local_variables.clear()
-            self.variables.clear()
-            self.functions.clear()
-            self.control_stack.clear()
-            self.execution_state.clear()
-            self.trystate = "False"
-            self.return_flag = False
-            self.return_value = None
-            if self.cmdhandlingdebug:
-                print("[DEBUG] Interpreter state flushed.")
         def comment_strip(self, s):
             return s.split('\\')[0]
         def load(self, filename: str) -> None:
@@ -307,11 +295,9 @@ DESCRIPTION:
                             continue
                 self.loaded_files.append(filename)
             except (FileNotFoundError, PermissionError, TypeError, RuntimeError) as critical:
-                if self.filedebug:
                     print(f"[LOAD-CRITICAL] {critical}")
 
             except Exception as unknown:
-                if self.filedebug:
                     print(f"[LOAD-UNKNOWN] Unexpected error:\n{unknown}")
                     if self.filedebug:
                         traceback.print_exc()
@@ -321,6 +307,8 @@ DESCRIPTION:
                     print(f" ├─ Successes: {success_count}")
                     print(f" └─ Failures: {self.loaderrorcount}")
         def cmd_del(self, args):
+            """Deletes a variable or function.
+               Usage: del var variable_name OR del func function_name"""
             parts = args.split(" ",)
             object_type = parts[0].strip().lower() if len(parts) > 0 else None
             name = parts[1].strip() if len(parts) > 1 else None
@@ -350,7 +338,8 @@ DESCRIPTION:
                 os.system('cls' if os.name == 'nt' else 'clear')
             else:
                 print("\n" * 100) #for terminals or non-tty outputs that dont support cls.
-        def cmd_try(self):
+        def cmd_brute(self):
+            """A bruteforce control flow command, that will execute the block until it encounters an end, regardless of errors."""
             self.trystate = "True"
             self.control_stack.append({"type": "try"})
             if self.ctrflwdebug:
@@ -870,9 +859,10 @@ DESCRIPTION:
                             time.sleep(settings["delay"])
                         print("\033[0m")  # Reset color
                     elif args.strip() == "output":
-                        print(self.output)
+                        #print output in ut-8 encoding
+                        print(self.output.encode('utf-8', errors='replace').decode('utf-8'))
                     else:
-                        print(args)
+                        print(args.encode('utf-8', errors='replace').decode('utf-8'))
                     if self.prtdebug:
                         print("[DEBUG] Print Settings: ", settings)
 
@@ -1005,9 +995,9 @@ DESCRIPTION:
             except Exception as e:
                 self.raiseError(f"[Unrecognised Error] Failed to read file. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to read file. Error: {e}, ignored due to try block.")
 
-        def fetch_data_from_api(self, url=None, timeout=20):
+        def fetch_data_from_URL(self, url=None, timeout=20):
             install_package("requests")
-            """Fetch data from a given API URL or from a variable in Var_Reg."""
+            """Fetch data from a given URL or from a variable in Var_Reg."""
             if not url:
                 self.loaderrorcount+=1;self.raiseError("--ErrID11: No URL or variable provided.")if getattr(self, "trystate")=="False" else print(f"[WARNING] No URL or variable provided, ignored due to try block.")
                 self.output = None
@@ -1032,7 +1022,7 @@ DESCRIPTION:
                 if self.reqdebug:
                     print(f"[DEBUG] Data fetched and stored in output: {self.output}")
             except requests.exceptions.RequestException as e:
-                self.raiseError(f"[Unrecognised Error] Failed to fetch data from API. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to fetch data from API. Error: {e}, ignored due to try block.")
+                self.raiseError(f"[Unrecognised Error] Failed to fetch data from URL. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to fetch data from URL. Error: {e}, ignored due to try block.")
 
 
         def store_variable(self, var_name, value, data_type, local=False):
@@ -1554,9 +1544,9 @@ DESCRIPTION:
                 return
             url = args[0]
             if url in self.variables:           
-                self.fetch_data_from_api(self.variables[url])
+                self.fetch_data_from_URL(self.variables[url])
             else:
-                self.fetch_data_from_api(args)
+                self.fetch_data_from_URL(args)
 
         def cmd_exit(self, args=None):
             if args:
@@ -1564,13 +1554,6 @@ DESCRIPTION:
             if self.cmdhandlingdebug:    
                 print("[DEBUG] Exiting")
             exit()
-
-
-        def log_debug(self, message):
-            """Unified debug logger."""
-            if self.debug:
-                print(f"[DEBUG] {message}")
-                self.debuglog.append(f"[DEBUG] {message}")
         def cmd_return(self, args):
             """
             Stops execution of the current function and returns a value.
@@ -1781,7 +1764,7 @@ DESCRIPTION:
             var_data = self.variables.get(var_name)
             if self.vardebug:
                 print(f"[DEBUG] Attempting to increment variable '{var_name}' with data: {var_data}")
-            if var_data:
+            if var_data and var_data[1] == "int":
                 new_value = var_data[0] + 1
                 self.variables[var_name] = (new_value, "int")
                 if self.ctrflwdebug:
@@ -1809,7 +1792,6 @@ DESCRIPTION:
             """Wait for a specified number of seconds."""
             try:
                 duration = int(args)
-                self.log_debug(f"Waiting for {duration} seconds...")
                 time.sleep(duration)
             except ValueError:
                 self.loaderrorcount+=1;self.raiseError("--ErrID2: Duration must be an integer.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Duration must be an integer, ignored due to try block.")
@@ -2008,7 +1990,7 @@ DESCRIPTION:
                 print(f"Terminal opened at ({pos_x}, {pos_y}) with size {width}x{height}.")
             else:
                 print("Warning: Could not find the Command Prompt window.")
-        def cmd_reinit(self): #to bring back the interpreter to its initial state. 
+        def cmd_reworkedflush(self): #to bring back the interpreter to its initial state. 
 
             self.local_variables.clear()
             self.variables.clear()
@@ -2065,7 +2047,7 @@ DESCRIPTION:
             # If a file is provided, read commands from the file
             if args.file:
                 try:
-                    with open(args.file, 'r', encoding='utf-8', errors='replace') as script_file:
+                    with open(args.file, 'r', errors='replace') as script_file:
                         interpreter.script_lines = script_file.readlines()  # Store all lines in memory
                         interpreter.current_line = 0
 
