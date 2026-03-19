@@ -61,6 +61,8 @@ try:
             self.return_flag:bool = False
             self.return_value:str = None
             self.loaderrorcount:int = 0 #load error count, used to track errors during file loading.
+            self._math_ns={'math':math} 
+            self._math_cache={}
             #Debug Init---
             self.ctrflwdebug:bool = False 
             self.prtdebug:bool = False
@@ -203,56 +205,9 @@ try:
                     print("[DEBUG] All client rules reset to default.") if self.cmdhandlingdebug else None
         def info(self):
             print(f'Running on version:{VERSION}')
-            print(f'Developed by Raven Corvidae 07.2024-Present, under CC4.0 BY-SA-NC license.')
+            print(f'Developed by Raven Corvidae 07.2024-Present, under GNU GPLv3.0 license.')
         def help(self, command):
-            import importlib.util, os, requests
-
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            target_folder = os.path.join(base_dir, "essentials")
-            os.makedirs(target_folder, exist_ok=True)
-            file_path = os.path.join(target_folder, "help.py")
-            help_descriptions = None
-            if os.path.exists(file_path):
-                try:
-                    spec = importlib.util.spec_from_file_location("help_module", file_path)
-                    help_module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(help_module)
-                    help_descriptions = help_module.help_descriptions
-                except Exception as e:
-                    pass
-            if help_descriptions is None:
-                help_url = "https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/essentials/help.py"
-                print(f"[WARNING] help.py not found, attempting to download from {help_url}...")
-                try:
-                    response = requests.get(help_url)
-                    if response.status_code == 200:
-                        with open(file_path, "w", encoding="utf-8") as f:
-                            f.write(response.text)
-
-                        spec = importlib.util.spec_from_file_location("help_module", file_path)
-                        help_module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(help_module)
-                        help_descriptions = help_module.help_descriptions
-
-                        print("[INFO] help.py downloaded and loaded successfully.")
-                    else:
-                        print(f"--ErrID17: Failed to download help.py. Status code: {response.status_code}")
-                        return
-                except Exception as e:
-                    print(f"--ErrID18: Exception occurred while downloading help.py: {e}")
-                    return
-
-            if command not in help_descriptions:
-                print(f"No help available for '{command}'.")
-                return
-
-            description = help_descriptions.get(command)
-            print(f"""
-Help -
-NAME:{command}
-DESCRIPTION:
-    {description}
-            """)
+            print("Syntax and other information at Https://x3documentation.neocities.org/syntax")
         def comment_strip(self, s):
             return s.split('\\')[0]
         def load(self, filename: str) -> None:
@@ -1158,61 +1113,7 @@ DESCRIPTION:
                     print(f"[SELF-DEBUG] Incorrect usage: Unknown debug option '{dbg_option}'.")
             if not enabled_any:
                 print("[SELF-DEBUG] No valid debug options provided. Use 'dev All' to enable all.")
-
-
-        
-        #Old but preserved for reference
-        #def cmd_try(self, args):
-        #    self.control_stack.append({
-        #        "type": "try",
-        #        "active": True,
-        #        "error": None
-        #    })
-        #    self.cmd_log("[LOG] Entering try block")
-        
-
-        #random thingy that i forgot to remove during MintEclipse development #23.09.25#
-        #def cmd_log(self, *args):
-        #    """
-        #    Logs messages or variable states for debugging.
-        #    Accepts multiple arguments and concatenates them into a single log message.
-
-        #    Args:
-        #        *args: Variable number of arguments to be logged.
-        #    """
-        #    # Join all arguments into a single string
-        #    message = " ".join(map(str, args))
-
-        #    # Print to the console in debug mode
-        #    if self.debug:
-        #        print(f"[DEBUG] {message}")
-        #        self.debuglog.append(f"[DEBUG] {message}")
-
-        #old string length function, replaced with ##length:() #23.9.25#
-        #def str_len(self, args):
-        #    """
-        #    Returns the length of a string variable.
-        #    Syntax: str_len var_name result_var
-        #    """
-        #    parts = args.split()
-        #    if len(parts) != 2:
-        #        self.loaderrorcount+=1;self.raiseError("--ErrID70: Incorrect syntax for str_len. Expected: str_len var_name result_var")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect syntax for str_len. Expected: str_len var_name result_var, ignored due to try block.")
-        #    var_name, result_var = parts  
-        #
-        #    if var_name in self.variables:
-        #        value = self.variables[var_name][0]
-        #        if isinstance(value, str):
-        #            length = len(value)
-        #            self.store_variable(result_var, length, "int", local=self.local)
-        #            if self.cmdhandlingdebug:
-        #                print(f"[DEBUG]Length of '{var_name}' stored in '{result_var}': {length}")
-        #        else:
-        #            self.loaderrorcount+=1;self.raiseError(f"--ErrID71: Variable '{var_name}' is not a string.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' is not a string, ignored due to try block.")
-        #           
-        #
-        #
-        #        self.loaderrorcount+=1;self.raiseError(f"--ErrID72: Variable '{var_name}' not found.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Variable '{var_name}' not found, ignored due to try block.")
-               
+   
         def replace_nibbits(self, input_str):
             """
             Replaces ##key and ##key:(arg) additional parameters safely and completely.
@@ -1443,21 +1344,6 @@ DESCRIPTION:
 
             except Exception as e:
                 self.raiseError(f"[Unrecognised Error] Failed to search file. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to search file. Error: {e}, ignored due to try block.")
-        #removed in v3.94 minteclipse 0.4, #28.9.25 -Raven
-        #def cmd_sys_info(self, args):
-        #    """
-        #    Displays system information.
-        #    Syntax: sys_info
-        #    """
-        #    import platform
-        #    info = {
-        #        "OS": platform.system(),
-        #        "Version": platform.version(),
-        #        "Release": platform.release(),
-        #        "Processor": platform.processor(),
-        #    }
-        #    for key, value in info.items():
-        #        print(f"{key}: {value}")
 
         def cmd_inp(self, raw_args):
             """
@@ -1553,6 +1439,7 @@ DESCRIPTION:
                 print(f"[Exit]: {args}")
             if self.cmdhandlingdebug:    
                 print("[DEBUG] Exiting")
+            self.control_stack.clear()
             exit()
         def cmd_return(self, args):
             """
@@ -1767,6 +1654,7 @@ DESCRIPTION:
             if var_data and var_data[1] == "int":
                 new_value = var_data[0] + 1
                 self.variables[var_name] = (new_value, "int")
+                self._math_ns[var_name]=new_value
                 if self.ctrflwdebug:
                     print(f"[DEBUG] INC: {var_name} incremented to {new_value}")
             else:
@@ -1783,6 +1671,7 @@ DESCRIPTION:
             if var_data and var_data[1] == "int":
                 new_value = var_data[0] - 1
                 self.variables[var_name] = (new_value, "int")
+                self._math_ns[var_name]=new_value
                 if self.ctrflwdebug:
                     print(f"[DEBUG] DEC: {var_name} decremented to {new_value}")
             else:
@@ -1836,14 +1725,12 @@ DESCRIPTION:
                 self.raiseError(f"[Unrecognised Error] Failed to calculate square root. Error: {e}")if getattr(self, "trystate")=="False" else print(f"[WARNING] Unrecognised Error: Failed to calculate square root. Error: {e}, ignored due to try block.")
                 self.cmd_exit()
 
-        def cmd_fastmath(self,a):x,e=a.split('=',1);r=eval(e,{'__builtins__':None,'math':math},{k:self.variables[k][0]for k in self.variables});self.variables[x.strip()]=[r,'float'if type(r) is float else'int']
-        """
-        #August 2025 - Raven
-        oh god this is insane on so many levels like just look at this
-        this makes me wonna vomit.
-        Absolutely disgusting piece of code just for the sake of faster math operations.
-        Syntax: fastmath <var_name> = <expression>
-        """
+        def cmd_fastmath(self,a):
+            """
+            Syntax: fastmath var_name = expression
+            """
+            x,e=a.split('=',1);x=x.strip();e=e.strip();c=self._math_cache.get(e)or self._math_cache.setdefault(e,compile(e,'<fm>','eval'));r=eval(c,self._math_ns);self.variables[x]=[r,'float'if isinstance(r,float)else'int'];self._math_ns[x]=r
+
 
         def perform_arithmetic_operation(self, args, operation):
             """
@@ -1931,65 +1818,6 @@ DESCRIPTION:
             if var_name in self.variables:
                 return self.variables[var_name][0]  #  Return the stored value
             return var_name  #  Return the variable name itself if undefined
-
-        def cmd_open_terminal(self, args):
-            install_package('pygetwindow', "gw") #Import pygetwindow as "gw" lol.
-            from colorama import Fore, Style 
-            if "," not in args:
-                args = args.split()
-            else:
-                args = args.split(", ")
-            if len(args) < 5:
-                self.loaderrorcount+=1;self.raiseError("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName], ignored due to try block.")
-                return
-            load_mode = False
-            if "load=true" in args:
-                args.remove("load=true") 
-                load_mode = True
-
-            color_name = None
-            if len(args) > 5:  
-                last_arg = args[-1]
-                valid_colors = {
-                    "Black": "0", "Blue": "1", "Green": "2", "Aqua": "3",
-                    "Red": "4", "Purple": "5", "Yellow": "6", "White": "7",
-                    "Gray": "8", "LBlue": "9", "LGreen": "A", "LAqua": "B",
-                    "LRed": "C", "LPurple": "D", "LYellow": "E", "BWhite": "F"
-                }
-
-                if last_arg in valid_colors:
-                    color_name = valid_colors[last_arg]
-                    args.pop() 
-
-            if len(args) < 5:
-                self.loaderrorcount+=1;self.raiseError("--ErrID100: Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName]")if getattr(self, "trystate")=="False" else print(f"[WARNING] Incorrect usage. Expected format: open_terminal command x y width height [load] [ColorName], ignored due to try block.")
-                return
-            command, pos_x, pos_y, width, height = args
-            try:
-                pos_x, pos_y, width, height = map(int, [pos_x, pos_y, width, height])
-            except ValueError:
-                self.loaderrorcount+=1;self.raiseError("--ErrID101: Position and size parameters must be integers.")if getattr(self, "trystate")=="False" else print(f"[WARNING] Position and size parameters must be integers, ignored due to try block.")
-                return
-
-            terminal_title = "CMD"
-
-            if load_mode:
-                command = f'python.exe "MintEclipse.py" -f "{command}"'
-
-            cmd_color = color_name if color_name else "7"
-            cmd = f'start "CMD" cmd /k "title {terminal_title} & chcp 65001 & color {cmd_color} & {command}"'
-            subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
-            time.sleep(1.0)
-
-            windows = [win for win in gw.getWindowsWithTitle(terminal_title)]
-
-            if windows:
-                terminal_window = windows[0]
-                terminal_window.moveTo(pos_x, pos_y)
-                terminal_window.resizeTo(width, height)
-                print(f"Terminal opened at ({pos_x}, {pos_y}) with size {width}x{height}.")
-            else:
-                print("Warning: Could not find the Command Prompt window.")
         def cmd_reworkedflush(self): #to bring back the interpreter to its initial state. 
 
             self.local_variables.clear()
@@ -2047,7 +1875,7 @@ DESCRIPTION:
             # If a file is provided, read commands from the file
             if args.file:
                 try:
-                    with open(args.file, 'r', errors='replace') as script_file:
+                    with open(args.file, 'r', encoding="UTF-8", errors='replace') as script_file:
                         interpreter.script_lines = script_file.readlines()  # Store all lines in memory
                         interpreter.current_line = 0
 
@@ -2060,6 +1888,8 @@ DESCRIPTION:
                     raise Error(f"[Unrecognised Error] Could not load {args.file} due to reason:{exc}")
                 except (KeyboardInterrupt, EOFError):
                     print("\nExiting")
+                    interpreter.control_stack.clear()
+
 
             else:
                 global REPL
@@ -2071,6 +1901,7 @@ DESCRIPTION:
                         interpreter.handle_command(user_input.strip())
                     except (KeyboardInterrupt, EOFError):
                         print("\nExiting.")
+                        interpreter.control_stack.clear()
                         break
             if interpreter.control_stack:
                 print("--ErrID102: Program ended with unclosed blocks:")
@@ -2079,6 +1910,8 @@ DESCRIPTION:
 
         except (KeyboardInterrupt, EOFError):
             print("\nExiting.")
+            interpreter.control_stack.clear()
+
         except Exception as e:
             print(f"{e}")
     if __name__ == "__main__":
@@ -2088,9 +1921,4 @@ except (KeyboardInterrupt, EOFError):
 
 except Exception as e:
     print(f"--ErrID16: {e},\nTerminating script.")
-#Official 1k lines of code!!-November/24
-#Development Phase start of Eclispe-March/25
-#Official release of Eclispe 0.9. May/25
-#Development Phase start of MintEclipse. June/25
-#Official 2k lines of code!!-July/25
 #Restarting Development - January/26 
