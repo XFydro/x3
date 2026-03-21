@@ -60,8 +60,8 @@ x3 -f "./script.x3"
 
 Installers:
 
-* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/win.png)" width="60" />Windows: https://github.com/XFydro/x3/releases/tag/installer1.7
-* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/linux.png)" width="60" />Linux: https://github.com/XFydro/x3/releases/tag/installer1.7Linux
+* <img src="https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/win.png" width="30" />Windows: https://github.com/XFydro/x3/releases/tag/installer1.7
+* <img src="https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/linux.png" width="30" />Linux: https://github.com/XFydro/x3/releases/tag/installer1.7Linux
 ---
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -107,9 +107,8 @@ x3 "./script.x3"
 
 Installers:
 
-* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/win.png)" width="60" />Windows: https://github.com/XFydro/x3/releases/tag/installer1.7
-* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/linux.png)" width="60" />Linux: https://github.com/XFydro/x3/releases/tag/installer1.7Linux
-
+* <img src="https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/win.png" width="30" />Windows: https://github.com/XFydro/x3/releases/tag/installer1.7
+* <img src="https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/linux.png" width="30" />Linux: https://github.com/XFydro/x3/releases/tag/installer1.7Linux
 ---
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@
