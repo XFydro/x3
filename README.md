@@ -1,70 +1,119 @@
+# X3
+
+---
+
+# Windows and Linux Compatible!
+
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@
-#  X3 ME(MintEclipse)
 
-> *A Mashup of multiple markdown, general purpose and domain specific languages.*  
-> **Current Version:** `3.9x` | **Project Phase:** Active development (SUBJECT TO OTHER CONCURRENT ACTIVE PROJECTS)
+# <img src="https://x3documentation.neocities.org/logo.png" width="60" />X3 ME (MintEclipse)
 
----
+> *A mashup of multiple markdown, general-purpose, and domain-specific languages.*
 
-##  What is MintEclipse?
-
-**MintEclipse** is a x3 interpreter version designed for **X3-based scripting**, infused with enhanced control flow, dynamic variables, expression parsing, function definitions, and rich debugging capabilities.  
-It’s **modular, powerful, expressive**, and still evolving thru our(my) constant development :3
-
-Built by **[Raven (formally known as XFydro)](https://x3documentation.neocities.org/developer)** with passion and <3. (ok i kinda lost my sanity over this so this point is straight up a lie. -Raven #10.9.25)
+**Current Version:** `3.95`
+**Project Phase:** Active development *(may be affected by other concurrent projects)*
 
 ---
 
-##  Requirements
+## What is MintEclipse?
 
-- Python **3.6+**
-- Internet access (for `fetch`, `##fetch:*`, and online packages)
-- Patience if you got a potato pc
+**MintEclipse** is an advanced **X3 interpreter variant** designed for expressive and powerful scripting.
 
-Required packages (auto-installed if not found):
-- `psutil`
-- `requests`
+Features include:
+
+* Dynamic variables
+* Expression parsing
+* Function definitions
+* Debugging tools
+* Misc Functions
+
+Built by **[Raven (formerly XFydro)](https://x3documentation.neocities.org/developer)**
+---
+
+## Requirements
+
+* Python **3.6+**
+* Internet access *(for `fetch`, `##fetch:*`, and packages)*
+
+### Required packages (auto-installed if missing):
+
+* `psutil`
+* `requests`
 
 ---
 
-##  Usage
+## Usage
 
-###  Run a Script
-If you dont have the interpreter installed on PATH:
+### Run a Script
+
+Without PATH:
+
 ```bash
-python "C:/.../minteclipse.py" "-f" "script.x3"
+python "C:/.../minteclipse.py" -f "script.x3"
 ```
-If you do have the interpreter installed on PATH (you can use our **[installer](https://github.com/XFydro/x3/releases/tag/installer1.7)** for that :3 )
+
+With PATH:
+
 ```bash
 x3 -f "./script.x3"
 ```
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# ✈ X3 S3(Sardonix)
-> *"Lightweight as a feather, dumb as a rock"*                       
-> **Current Version:** `3.94`      
-> **Project Phase:** Active development               
+
+Installers:
+
+* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/win.png)" width="60" />Windows: https://github.com/XFydro/x3/releases/tag/installer1.7
+* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/linux.png)" width="60" />Linux: https://github.com/XFydro/x3/releases/tag/installer1.7Linux
+---
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+# <img src="https://x3documentation.neocities.org/logo2.png" width="60" />X3 SR (Sardonix)
+
+> *"Lightweight as a feather, dumb as a rock"*
+### (NO LONGER MAINTAINED!)
+**Current Version:** `3.94`
+**Project Phase:** Active development
 
 ---
 
-## What's Sardonix??
+## What is Sardonix?
 
-**Sardonix** is a lightweight and efficient(less beefy) version of **MintEclipse v3.94**, designed with medium level compatibility with v3.94, with a well defined abstract syntax tree and better tokenisation system.
+**Sardonix** is a lightweight and efficient variant of **MintEclipse v3.94**, designed with a cleaner structure and improved performance.
 
-Built by **[Raven (formally known as XFydro)](https://x3documentation.neocities.org/developer)** with enthusiasm and insanity >:3.
+It features:
+
+* A well-defined abstract syntax tree
+* Improved tokenisation
+* Better performance with moderate compatibility
+
+Built by **[Raven (formerly XFydro)](https://x3documentation.neocities.org/developer)**
 
 ---
-##  Usage
 
-###  Run a Script
+## Usage
+
+### Run a Script
+
+Without PATH:
+
 ```bash
-python "C:/.../sardonix.py" "-f" "script.x3"
+python "C:/.../sardonix.py" -f "script.x3"
 ```
-If you do have the interpreter installed on PATH (you can use our **[installer](https://github.com/XFydro/x3/releases/tag/installer1.7)** for that :3 )
+
+With PATH:
+
 ```bash
 x3 "./script.x3"
 ```
+
+Installers:
+
+* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/win.png)" width="60" />Windows: https://github.com/XFydro/x3/releases/tag/installer1.7
+* <img src="[https://x3documentation.neocities.org/logo.png](https://raw.githubusercontent.com/XFydro/x3/refs/heads/main/assets/linux.png)" width="60" />Linux: https://github.com/XFydro/x3/releases/tag/installer1.7Linux
+
 ---
+
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ## License
-> All X3 Versions are developed under the GPL General Public License v3.0 despite shown otherwise on older versions.
 
+All X3 versions are licensed under the **GNU General Public License v3.0**,
+even if older versions state otherwise.
